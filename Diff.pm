@@ -54,24 +54,30 @@ sub diff_dbs {
 
   my $out = '';
   if (@changes) {
-    $out .= diff_banner(@db);
+    $out .= diff_banner(\%opts, @db);
     $out .= join '', @changes;
   }
   return $out;
 }
 
 sub diff_banner {
-  my @db = @_;
+  my ($opts, @db) = @_;
 
   my $summary1 = $db[0]->summary();
   my $summary2 = $db[1]->summary();
+
+  my $opt_text =
+    join ', ',
+         map { $opts->{$_} eq '1' ? $_ : "$_=$opts->{$_}" }
+             keys %$opts;
+  $opt_text = "## Options: $opt_text\n" if $opt_text;
 
   my $now = scalar localtime();
   return <<EOF;
 ## mysqldiff $VERSION
 ## 
-## run on $now
-##
+## Run on $now
+$opt_text##
 ## --- $summary1
 ## +++ $summary2
 
@@ -161,35 +167,40 @@ sub diff_indices {
         debug(4, "      index `$index' changed\n");
         my $new_type = $table2->unique_index($index) ? 'UNIQUE' : 'INDEX';
 
-        my $changes = '';
+        my $changes = <<EOF;
+ALTER TABLE $name1 ADD $new_type $index ($indices2{$index});
+EOF
         if ($indices1{$index}) {
           $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
           $changes .= " # was $old_type ($indices1{$index})"
             unless $opts{'no-old-defs'};
           $changes .= "\n";
         }
+        else {
+          die "Should this ever happen?  I can't think why it would.\n";
+        }
 
-        $changes .= <<EOF;
-ALTER TABLE $name1 ADD $new_type $index ($indices2{$index});
-EOF
         push @changes, $changes;
       }
     }
     else {
       debug(4, "      index `$index' removed\n");
-      my $change = "ALTER TABLE $name1 DROP INDEX $index;";
-      $change .= " # was $old_type ($indices1{$index})"
+      my $auto = check_for_auto_col($table1, $indices1{$index});
+      my $changes = $auto ? index_auto_col($table1, $indices1{$index}) : '';
+      $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
+      $changes .= " # was $old_type ($indices1{$index})"
         unless $opts{'no-old-defs'};
-      $change .= "\n";
-      push @changes, $change;
+      $changes .= "\n";
+      push @changes, $changes;
     }
   }
 
   foreach my $index (keys %indices2) {
     if (! $indices1{$index}) {
       debug(4, "      index `$index' added\n");
+      my $new_type = $table2->unique_index($index) ? 'UNIQUE' : 'INDEX';
       push @changes,
-           "ALTER TABLE $name1 ADD INDEX $index ($indices2{$index});\n";
+           "ALTER TABLE $name1 ADD $new_type $index ($indices2{$index});\n";
     }
   }
 
@@ -211,9 +222,10 @@ sub diff_primary_key {
   
   if ($primary1 && ! $primary2) {
     debug(4, "      primary key `$primary1' dropped\n");
-    my $change = "ALTER TABLE $name1 DROP PRIMARY KEY;";
-    $change .= " # was $primary1" unless $opts{'no-old-defs'};
-    return ( "$change\n" );
+    my $changes = maybe_index_auto_col($table1, $primary1);
+    $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
+    $changes .= " # was $primary1" unless $opts{'no-old-defs'};
+    return ( "$changes\n" );
   }
 
   if (! $primary1 && $primary2) {
@@ -223,16 +235,49 @@ sub diff_primary_key {
 
   if ($primary1 ne $primary2) {
     debug(4, "      primary key changed\n");
-    my $change = "ALTER TABLE $name1 DROP PRIMARY KEY;";
-    $change .= " # was $primary1" unless $opts{'no-old-defs'};
-    $change .= <<EOF;
+    my $auto = check_for_auto_col($table1, $primary1);
+    my $changes = $auto ? index_auto_col($table1, $auto) : '';
+    $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
+    $changes .= " # was $primary1" unless $opts{'no-old-defs'};
+    $changes .= <<EOF;
 
 ALTER TABLE $name1 ADD PRIMARY KEY $primary2;
 EOF
-    push @changes, $change;
+    $changes .= <<EOF;
+ALTER TABLE $name1 DROP INDEX $auto;
+EOF
+    push @changes, $changes;
   }
 
   return @changes;
+}
+
+# If we're about to drop a composite (multi-column) index, we need to
+# check whether any of the columns in the composite index are
+# auto_increment; if so, we have to add an index for that
+# auto_increment column *before* dropping the composite index, since
+# auto_increment columns must always be indexed.
+sub check_for_auto_col {
+  my ($table, $fields) = @_;
+
+  $fields =~ s/^\s*\((.*)\)\s*$/$1/g; # strip brackets if any
+  my @fields = split /\s*,\s*/, $fields;
+
+  my $changes = '';
+  foreach my $field (@fields) {
+    if ($table->fields($field) =~ /auto_increment/i && 
+        ! $table->indices($field)) {
+      return $field;
+    }
+  }
+
+  return undef;
+}
+
+sub index_auto_col {
+  my ($table, $field) = @_;
+  my $name = $table->name;
+  return "ALTER TABLE $name ADD INDEX ($field); # auto columns must always be indexed\n";
 }
 
 sub diff_options {
