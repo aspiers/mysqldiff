@@ -416,18 +416,32 @@ ALTER TABLE baz ADD UNIQUE firstname (firstname,surname);
   ],
 );
 
-plan tests => scalar(@tests) + 3;
+plan tests => scalar(@tests) + 4;
 
 print "# Test loading MySQL::Diff\n";
 ok(1);
 
 print "# Test can run mysql client\n";
-ok(open(MYSQL, "mysql --help|") &&
-     join('', <MYSQL>) =~ /net_buffer_length/);
+my $client_ok = (open(MYSQL, "mysql --help|") &&
+                   join('', <MYSQL>) =~ /net_buffer_length/);
+ok($client_ok);
+die "Cannot proceed with tests without a mysql client; aborting.\n"
+  unless $client_ok;
 
 print "# Test can run mysqldump utility\n";
-ok(open(MYSQLDUMP, "mysqldump --help|") &&
-     join('', <MYSQLDUMP>) =~ /net_buffer_length/);
+my $mysqldump_ok = (open(MYSQLDUMP, "mysqldump --help|") &&
+                      join('', <MYSQLDUMP>) =~ /net_buffer_length/);
+ok($mysqldump_ok);
+die "Cannot proceed with tests without mysqldump; aborting.\n"
+  unless $mysqldump_ok;
+
+print "# Test can connect to mysql db\n";
+my $connection_ok = (open(MYSQL, "mysql 2>&1 |") &&
+                       join('', <MYSQL>) !~ /Can't connect/);
+ok($connection_ok);
+die "Cannot proceed with tests without a valid connection; aborting.\n"
+  unless $connection_ok;
+
 
 foreach my $test (@tests) {
   if (! ref $test) {
