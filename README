@@ -16,8 +16,7 @@ cool environment, come and work for us!
 Prerequisites
 -------------
 
-This suite requires Perl 5.6.0 or higher, and the Class::MakeMethods::*
-suite available from CPAN.
+This suite probably requires Perl 5.005 or higher.
 
 Installation
 ------------

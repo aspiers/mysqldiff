@@ -3,7 +3,8 @@ package MySQL::Utils;
 use strict;
 
 use base qw(Exporter);
-our @EXPORT_OK = qw(parse_arg auth_args_string read_file debug_level debug);
+use vars qw(@EXPORT_OK);
+@EXPORT_OK = qw(parse_arg auth_args_string read_file debug_level debug);
 
 sub parse_arg {
   my ($opts, $arg, $num) = @_;

@@ -3,13 +3,13 @@ package MySQL::Diff;
 use strict;
 
 use base qw(Exporter);
-use vars qw(@EXPORT_OK);
+use vars qw(@EXPORT_OK $VERSION);
 @EXPORT_OK = qw(parse_arg diff_dbs);
 
 use MySQL::Database;
 use MySQL::Utils qw(parse_arg debug);
 
-our $VERSION = '0.32';
+$VERSION = '0.33';
 
 sub diff_dbs {
   my ($opts, @db) = @_;
