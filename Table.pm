@@ -61,7 +61,7 @@ sub parse {
       next;
     }
 
-    if (/^(KEY|UNIQUE)\s+(\S+?)\s+\((.*)\)$/) {
+    if (/^(KEY|UNIQUE|UNIQUE KEY)\s+(\S+?)\s+\((.*)\)$/) {
       my ($type, $key, $val) = ($1, $2, $3);
       croak "index `$key' duplicated in table `$name'\n"
         if $self->{_indices}{$key};
