@@ -351,13 +351,14 @@ USE $temp_db;
 EOF
     print MYSQL <DEFS>;
     close(DEFS);
+    close(MYSQL);
 
     # ... and then retrieve defs from mysqldump.  Hence we've used
     # MySQL to massage the defs file into canonical form.
     $self->_get_defs($temp_db, $args);
 
+    debug(3, "    dropping temporary database $temp_db\n");
     print MYSQL "DROP DATABASE $temp_db;\n";
-    close(MYSQL);
   }
   elsif ($p{db}) {
     $self->{_source} = { db => $p{db}, auth => $args };
@@ -376,7 +377,7 @@ EOF
 sub _get_defs {
   my $self = shift;
   my ($db, $args) = @_;
-  
+
   open(MYSQLDUMP, "mysqldump -d $args $db |")
       or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
   debug(3, "    running mysqldump -d $args $db\n");
@@ -391,7 +392,7 @@ sub _parse_defs {
 
   debug(3, "    parsing table defs\n");
   my $defs = join '', grep ! /^\s*\#/, @{$self->{_defs}};
-  my @tables = split /(?=^\s*create\s+table)/im, $defs;
+  my @tables = split /(?=^\s*create\s+table\s+)/im, $defs;
   foreach my $table (@tables) {
     next unless $table =~ /create\s+table/i;
     my $obj = MySQL::Table->new(source => $self->{_source},
