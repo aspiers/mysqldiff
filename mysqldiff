@@ -220,9 +220,10 @@ sub new {
   if ($p{file}) {
     $self->{_source} = { file => $p{file} };
 
+# FIXME: option to avoid create-and-dump bit
     # create a temporary database using defs from file ...
     # hopefully the temp db is unique!
-    my $temp_db = sprintf "mysqldiff_temp_%d_%d", time(), $$;
+    my $temp_db = sprintf "test_mysqldiff_temp_%d_%d", time(), $$;
 
     open(DEFS, $p{file})
       or die "Couldn't open `$p{file}': $!\n";
