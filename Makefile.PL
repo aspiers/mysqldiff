@@ -10,9 +10,13 @@ WriteMakefile(
 
 sub MY::postamble {
   <<'EOF';
-# Nasty hack for getting the code to co-exist with guideguide CVS;
+# Nasty hacks for getting the code to co-exist with guideguide CVS;
 # needn't concern anyone else.
 mysqldiff.pl: ../mysqldiff
 	ln -s $< $@
+
+ChangeLog: $(TO_INST_PM)
+	-rm -f $@
+	cd .. && rcs2log mysqldiff MySQL > MySQL/$@
 EOF
 }
