@@ -6,12 +6,20 @@
 # and output a patch in the format of ALTER TABLE statements
 # which converts the first database structure into in the second.
 #
-# Adam Spiers <adam@spiers.net>
+# See http://www.new.ox.ac.uk/~adam/computing/mysqldiff/ for the
+# latest version.
+#
+# Copyright (c) 2000 Adam Spiers <adam@spiers.net>. All rights
+# reserved. This program is free software; you can redistribute it
+# and/or modify it under the same terms as Perl itself.
+#
 
 use strict;
 
 use vars qw($VERSION);
 $VERSION = '0.20';
+
+require 5.004;
 
 use Carp qw(:DEFAULT cluck);
 use FindBin qw($Script);
@@ -47,10 +55,15 @@ sub usage {
 Usage: $Script [ options ] <database1> <database2>
 
 Options:
-  -?, --help            show this help
-  -h, --host=...        connect to host
-  -u, --user=...        user for login if not current user
-  -p, --password[=...]  password to use when connecting to server
+  -?,  --help             show this help
+  -h,  --host=...         connect to host
+  -u,  --user=...         user for login if not current user
+  -p,  --password[=...]   password to use when connecting to server
+
+for <databaseN> only, where N == 1 or 2,
+  -hN, --hostN=...        connect to host
+  -uN, --userN=...        user for login if not current user
+  -pN, --passwordN[=...]  password to use when connecting to server
 
 Databases can be either files or database names.
 If there is an ambiguity, the file will be preferred;
