@@ -20,7 +20,7 @@
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '0.22';
+$VERSION = '0.23';
 
 require 5.004;
 
@@ -29,7 +29,8 @@ use FindBin qw($Script);
 use Getopt::Long;
 
 my %opts = ();
-GetOptions(\%opts, "help|?", "debug|d:i", "no-old-defs|n", "only-both|o",
+GetOptions(\%opts, "help|?", "debug|d:i",
+           "no-old-defs|n", "only-both|o", "table-re|t=s",
            "host|h=s",   "user|u=s",   "password|p:s",
            "host1|h1=s", "user1|u1=s", "password1|p1:s",
            "host2|h2=s", "user2|u2=s", "password2|p2:s",
@@ -42,6 +43,9 @@ if (@ARGV != 2 or $opts{help}) {
 
 $opts{debug}++ if exists $opts{debug} && $opts{debug} == 0;
 my $debug = $opts{debug} || 0;
+
+my $table_re;
+$table_re = qr/$opts{'table-re'}/ if $opts{'table-re'};
 
 my @db = ();
 for my $num (0, 1) {
@@ -65,6 +69,7 @@ Options:
   -d,  --debug[=N]        enable debugging [level N, default 1]
   -o,  --only-both        only output changes for tables in both databases
   -n,  --no-old-defs      suppress comments describing old definitions
+  -t,  --table-re=REGEXP  restrict comparisons to tables matching REGEXP
 
   -h,  --host=...         connect to host
   -u,  --user=...         user for login if not current user
@@ -90,6 +95,10 @@ sub diff_dbs {
 
   foreach my $table1 ($db[0]->tables()) {
     my $name = $table1->name();
+    if ($table_re && $name !~ $table_re) {
+      debug(2, "  table `$name' didn't match $opts{'table-re'}; ignoring\n");
+      next;
+    }
     debug(2, "  looking at tables called `$name'\n");
     if (my $table2 = $db[1]->table_by_name($name)) {
       debug(4, "    comparing tables called `$name'\n");
@@ -104,6 +113,10 @@ sub diff_dbs {
 
   foreach my $table2 ($db[1]->tables()) {
     my $name = $table2->name();
+    if ($table_re && $name !~ $table_re) {
+      debug(2, "  table `$name' matched $opts{'table-re'}; ignoring\n");
+      next;
+    }
     if (! $db[0]->table_by_name($name)) {
       debug(3, "    table `$name' added\n");
       push @changes, $table2->def() . "\n"
