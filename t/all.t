@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test;
+use Test::More;
 use MySQL::Database;
 use MySQL::Diff qw(diff_dbs);
 
@@ -488,13 +488,13 @@ sub my_ok { # do we really need this?
 sub bail { # because Test::More::BAIL_OUT is still unimplemented ...
   my ($reason) = @_;
   ok(0);
-  print "$reason.\n";
+  diag("$reason.\n");
   if ($ENV{FAKE_SUCCESS}) {
-    print "FAKE_SUCCESS was set; assuming OK and faking success for rest of tests ...\n";
+    diag("FAKE_SUCCESS was set; assuming OK and faking success for rest of tests ...\n");
     ok(1) for 1 .. ($total - $run);
   }
   else {
-    print "Aborting rest of tests.\n";
+    diag("Aborting rest of tests.\n");
   }
   exit 0;
 }
