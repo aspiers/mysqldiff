@@ -47,7 +47,7 @@ sub diff_dbs {
       next;
     }
     if (! $db[0]->table_by_name($name)) {
-      debug(3, "    table `$name' added\n");
+      debug(3, "  table `$name' added\n");
       push @changes, $table2->def() . "\n"
         unless $opts{'only-both'};
     }
@@ -147,17 +147,17 @@ sub diff_indices {
 
   my @changes = ();
 
-  foreach my $index (keys %indices1) {
-    my $old_type = $table1->is_unique_index($index) ? 'UNIQUE' : 'INDEX';
+  foreach my $index ($table1->indices_keys) {
+    my $old_type = $table1->unique_index($index) ? 'UNIQUE' : 'INDEX';
 
     if ($indices2{$index}) {
       if ($indices1{$index} ne $indices2{$index} ||
-          ($table1->is_unique_index($index)
+          ($table1->unique_index($index)
              xor
-           $table2->is_unique_index($index)))
+           $table2->unique_index($index)))
       {
         debug(4, "      index `$index' changed\n");
-        my $new_type = $table2->is_unique_index($index) ? 'UNIQUE' : 'INDEX';
+        my $new_type = $table2->unique_index($index) ? 'UNIQUE' : 'INDEX';
 
         my $changes = '';
         if ($indices1{$index}) {

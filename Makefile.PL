@@ -4,7 +4,9 @@ use ExtUtils::MakeMaker;
 WriteMakefile(
     'NAME'		=> 'MySQL::Diff',
     'VERSION_FROM'	=> 'Diff.pm', # finds $VERSION
-    'PREREQ_PM'		=> {}, # e.g., Module::Name => 1.1
+    'PREREQ_PM'		=> {
+      'Class::MakeMethods::Template' => 0,
+    },
 );
 
 sub MY::postamble {

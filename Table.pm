@@ -3,42 +3,34 @@ package MySQL::Table;
 use strict;
 
 use Carp qw(:DEFAULT cluck);
+use Class::MakeMethods::Template::Hash
+  'new --and_then_init' => 'new',
+  'scalar'              => 'name def source primary_key options',
+  'array --get_set_ref' => 'lines',
+  'hash'                => 'fields indices unique_index fulltext',
+  ;
 
 use MySQL::Utils qw(debug);
 
-sub new {
-  my $class = shift;
-  my %p = @_;
-  my $self = {};
-  bless $self, ref $class || $class;
-
+sub init {
+  my $self = shift;
   debug(4, "      constructing new MySQL::Table\n");
-
-  if (! $p{def}) {
-    croak "MySQL::Table::new called without def params";
-  }
-
-  $self->parse($p{def});
-
-  $self->{_source} = $p{source};
-
-  return $self;
+  croak "MySQL::Table::new called without def params" unless $self->def;
+  $self->parse;
 }
 
 sub parse {
   my $self = shift;
-  my ($def) = @_;
 
-  $def =~ s/\n+/\n/;
-  $self->{_def} = $def;
-  $self->{_lines} = [ grep ! /^\s*$/, split /(?=^)/m, $def ];
-  my @lines = @{$self->{_lines}};
-
+  (my $def = $self->def) =~ s/\n+/\n/;
+  $self->def($def);
+  $self->lines([ grep ! /^\s*$/, split /(?=^)/m, $def ]);
+  my @lines = $self->lines;
   debug(5, "        parsing table def\n");
 
   my $name;
   if ($lines[0] =~ /^\s*create\s+table\s+(\S+)\s+\(\s*$/i) {
-    $name = $self->{_name} = $1;
+    $self->name($name = $1);
     debug(5, "        got table name `$name'\n");
     shift @lines;
   }
@@ -49,31 +41,41 @@ sub parse {
   while (@lines) {
     $_ = shift @lines;
     s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
-
+    debug(7, "          line: [$_]\n");
     if (/^PRIMARY\s+KEY\s+(.+)$/) {
       my $primary = $1;
       croak "two primary keys in table `$name': `$primary', `",
-            $self->{_primary_key}, "'\n"
-        if $self->{_primary_key};
-      $self->{_primary_key} = $primary;
+            $self->primary_key, "'\n"
+        if $self->primary_key;
+      $self->primary_key($primary);
       debug(6, "          got primary key $primary\n");
       next;
     }
 
-    if (/^(KEY|UNIQUE|UNIQUE KEY)\s+(\S+?)\s*\((.*)\)$/) {
+    if (/^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)\s*\((.*)\)$/) {
       my ($type, $key, $val) = ($1, $2, $3);
       croak "index `$key' duplicated in table `$name'\n"
-        if $self->{_indices}{$key};
-      $self->{_indices}{$key} = $val;
-      $self->{_unique_index}{$key} = ($type =~ /unique/i) ? 1 : 0;
+        if $self->indices($key);
+      $self->indices($key, $val);
+      my $unique = $type =~ /unique/i;
+      $self->unique_index($key, $unique);
       debug(6, "          got ",
-               ($type =~ /unique/i) ? 'unique ' : '',
+               $unique ? 'unique ' : '',
                "index key `$key': ($val)\n");
       next;
     }
 
+    if (/^(FULLTEXT(?: KEY|INDEX)?)\s+(\S+?)\s*\((.*)\)$/) {
+      my ($type, $key, $val) = ($1, $2, $3);
+      croak "FULLTEXT index `$key' duplicated in table `$name'\n"
+        if $self->fulltext($key);
+      $self->fulltext($key, $val);
+      debug(6, "          got FULLTEXT index `$key': ($val)\n");
+      next;
+    }
+
     if (/^\)\s*(.*?);$/) { # end of table definition
-      my $options = $self->{_options} = $1;
+      my $options = $self->options($1);
       debug(6, "          got table options `$options'\n");
       last;
     }
@@ -81,8 +83,8 @@ sub parse {
     if (/^(\S+)\s*(.*)/) {
       my ($field, $def) = ($1, $2);
       croak "definition for field `$field' duplicated in table `$name'\n"
-        if $self->{_fields}{$field};
-      $self->{_fields}{$field} = $def;
+        if $self->fields($field);
+      $self->fields($field, $def);
       debug(6, "          got field def `$field': $def\n");
       next;
     }
@@ -91,19 +93,10 @@ sub parse {
   }
 
   warn "table `$name' didn't have terminator\n"
-    unless defined $self->{_options};
+    unless defined $self->options;
 
   warn "table `$name' had trailing garbage:\n", join '', @lines
     if @lines;
 }
-
-sub def             { $_[0]->{_def}                 }
-sub name            { $_[0]->{_name}                }
-sub source          { $_[0]->{_source}              }
-sub fields          { $_[0]->{_fields}  || {}       }
-sub indices         { $_[0]->{_indices} || {}       }
-sub primary_key     { $_[0]->{_primary_key}         }
-sub is_unique_index { $_[0]->{_unique_index}{$_[1]} }
-sub options         { $_[0]->{_options}             }
 
 1;
