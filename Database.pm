@@ -109,7 +109,7 @@ sub _parse_defs {
   return if $self->{_tables};
 
   debug(3, "    parsing table defs\n");
-  my $defs = join '', grep ! /^\s*\#/, @{$self->{_defs}};
+  my $defs = join '', grep ! /^\s*(\#|--)/, @{$self->{_defs}};
   my @tables = split /(?=^\s*create\s+table\s+)/im, $defs;
   $self->{_tables} = [];
   foreach my $table (@tables) {
