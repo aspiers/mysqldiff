@@ -358,7 +358,10 @@ EOF
     $self->_get_defs($temp_db, $args);
 
     debug(3, "    dropping temporary database $temp_db\n");
+    open(MYSQL, "| mysql $args")
+      or die "Couldn't execute `mysql$args': $!\n";
     print MYSQL "DROP DATABASE $temp_db;\n";
+    close(MYSQL);
   }
   elsif ($p{db}) {
     $self->{_source} = { db => $p{db}, auth => $args };
