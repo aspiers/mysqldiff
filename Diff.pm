@@ -223,7 +223,7 @@ sub diff_primary_key {
     $change .= " # was $primary1" unless $opts{'no-old-defs'};
     $change .= <<EOF;
 
-ALTER TABLE $name1 ADD PRIMARY KEY ($primary2);
+ALTER TABLE $name1 ADD PRIMARY KEY $primary2;
 EOF
     push @changes, $change;
   }
