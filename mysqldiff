@@ -10,6 +10,9 @@
 
 use strict;
 
+use vars qw($VERSION);
+$VERSION = '0.20';
+
 use Carp qw(:DEFAULT cluck);
 use FindBin qw($Script);
 use Getopt::Long;
@@ -58,14 +61,16 @@ EOF
 sub diff_dbs {
   my @db = @_;
 
+  my @changes = ();
+  
   foreach my $table1 ($db[0]->tables()) {
     my $name = $table1->name();
     if (my $table2 = $db[1]->table_by_name($name)) {
-      diff_tables($table1, $table2);
+      push @changes, diff_tables($table1, $table2);
     }
     else {
       # table in db1, but not db2
-      print "DROP TABLE $name;\n\n";
+      push @changes, "DROP TABLE $name;\n\n";
     }
   }
 
@@ -73,16 +78,42 @@ sub diff_dbs {
     my $name = $table2->name();
     if (! $db[0]->table_by_name($name)) {
       # table in db2, but not db1
-      print $table2->def, "\n";
+      push @changes, $table2->def() . "\n";
     }
+  }
+
+  if (@changes) {
+    diff_banner(@db);
+    print @changes;
   }
 }
 
+sub diff_banner {
+  my @db = @_;
+
+  my $summary1 = $db[0]->summary();
+  my $summary2 = $db[1]->summary();
+
+  my $now = scalar localtime();
+  print <<EOF;
+## mysqldiff $VERSION
+## 
+## run on $now
+##
+## --- $summary1
+## +++ $summary2
+
+EOF
+}
+
 sub diff_tables {
-  my $changes = diff_fields(@_) +
-                diff_keys(@_)   +
-                diff_primary_key(@_);
-  print "\n" if $changes;
+  my @changes = (diff_fields(@_),
+                 diff_indices(@_),
+                 diff_primary_key(@_));
+  if (@changes) {
+    $changes[-1] .= "\n";
+  }
+  return @changes;
 }
 
 sub diff_fields {
@@ -93,35 +124,63 @@ sub diff_fields {
   my %fields1 = %{ $table1->fields() };
   my %fields2 = %{ $table2->fields() };
 
-  my $changes = 0;
+  my @changes = ();
   
   foreach my $field (keys %fields1) {
     if ($fields2{$field}) {
       if ($fields1{$field} ne $fields2{$field}) {
-        print "ALTER TABLE $name1 CHANGE COLUMN $field $fields2{$field};\n";
-        $changes++;
+        push @changes,
+             "ALTER TABLE $name1 CHANGE COLUMN $field $fields2{$field};\n";
       }
     }
     else {
-      print "ALTER TABLE $name1 DROP COLUMN $field;\n";
-      $changes++;
+      push @changes,
+           "ALTER TABLE $name1 DROP COLUMN $field;\n";
     }
   }
 
   foreach my $field (keys %fields2) {
     if (! $fields1{$field}) {
-      print "ALTER TABLE $name1 ADD COLUMN $field $fields2{$field};\n";
-      $changes++;
+      push @changes,
+           "ALTER TABLE $name1 ADD COLUMN $field $fields2{$field};\n";
     }
   }
 
-  return $changes;
+  return @changes;
 }
 
-sub diff_keys {
+sub diff_indices {
   my ($table1, $table2) = @_;
-#FIXME
-  return 0;
+
+  my $name1 = $table1->name();
+
+  my %indices1 = %{ $table1->indices() };
+  my %indices2 = %{ $table2->indices() };
+
+  my @changes = ();
+
+  foreach my $index (keys %indices1) {
+    if ($indices2{$index}) {
+      if ($indices1{$index} ne $indices2{$index}) {
+        push @changes, <<EOF
+ALTER TABLE $name1 DROP INDEX $index;
+ALTER TABLE $name1 ADD INDEX $index ($indices2{$index});
+EOF
+      }
+    }
+    else {
+      push @changes, "ALTER TABLE $name1 DROP INDEX $index;\n";
+    }
+  }
+
+  foreach my $index (keys %indices2) {
+    if (! $indices1{$index}) {
+      push @changes,
+           "ALTER TABLE $name1 ADD INDEX $index ($indices2{$index});\n";
+    }
+  }
+
+  return @changes;
 }
 
 sub diff_primary_key {
@@ -132,15 +191,16 @@ sub diff_primary_key {
   my $primary1 = $table1->primary_key();
   my $primary2 = $table2->primary_key();
 
-  if ($primary1 ne $primary2) {
-    print <<EOF;
+  my @changes = ();
+  
+  if (($primary1 xor $primary2) or ($primary1 ne $primary2)) {
+    push @changes, <<EOF;
 ALTER TABLE $name1 DROP PRIMARY KEY;
 ALTER TABLE $name1 ADD PRIMARY KEY ($primary2);
 EOF
-    return 1;
   }
 
-  return 0;
+  return @changes;
 }
 
 ##############################################################################
@@ -292,6 +352,25 @@ sub table_by_name {
   return $self->{_by_name}{$name};
 }
 
+sub summary {
+  my $self = shift;
+  
+  if ($self->{_source}{file}) {
+    return "file: " . $self->{_source}{file};
+  }
+  elsif ($self->{_source}{db}) {
+    my $args = $self->{_source}{auth};
+    $args =~ tr/-//d;
+    $args =~ s/\bpassword=\S+//;
+    my $summary = "  db: " . $self->{_source}{db};
+    $summary .= " ($args)" if $args =~ /\S/;
+    return $summary;
+  }
+  else {
+    return 'unknown';
+  }
+}
+
 ##############################################################################
 #
 
@@ -353,8 +432,8 @@ sub parse {
     if (/^KEY\s+(\S+?)\s+\((.*)\)$/) {
       my ($key, $val) = ($1, $2);
       croak "`KEY $key' duplicated in table `$name'\n"
-        if $self->{_key_fields}{$key};
-      $self->{_key_fields}{$key} = $val;
+        if $self->{_indices}{$key};
+      $self->{_indices}{$key} = $val;
       next;
     }
 
@@ -375,9 +454,9 @@ sub parse {
   }
 }
 
-sub def           { $_[0]->{_def}         }
-sub name          { $_[0]->{_name}        }
-sub source        { $_[0]->{_source}      }
-sub fields        { $_[0]->{_fields}      }
-sub key_fields    { $_[0]->{_key_fields}  }
-sub primary_key   { $_[0]->{_primary_key} }
+sub def           { $_[0]->{_def}            }
+sub name          { $_[0]->{_name}           }
+sub source        { $_[0]->{_source}         }
+sub fields        { $_[0]->{_fields}  || {}  }
+sub indices       { $_[0]->{_indices} || {}  }
+sub primary_key   { $_[0]->{_primary_key}    }
