@@ -1,0 +1,54 @@
+README for MySQL::Diff
+
+                              MySQL::Diff
+                              ===========
+
+MySQL::Diff is Perl module for comparing the table structure
+of two MySQL databases.
+
+Shameless plug
+--------------
+
+This software was originally written as part of the
+<http://www.guideguide.com/> project.  If you like hacking Perl in a
+cool environment, come and work for us!
+
+Prerequisites
+-------------
+
+This suite requires Perl 5.004 or higher.
+
+Installation
+------------
+
+See INSTALL.
+
+Documentation
+-------------
+
+POD-format documentation is included in the modules.  POD is readable
+with the 'perldoc' utility.
+
+Support
+-------
+
+Questions, bug reports, useful code bits, and suggestions for
+MySQL::Diff should just be sent to me at <adam@spiers.net>.
+
+Availability
+------------
+
+The latest version of MySQL::Diff is available from
+
+  http://adamspiers.org/computing/mysqldiff/
+
+or (a possibly slightly older version) from the Comprehensive Perl
+Archive Network (CPAN).  Visit <http://www.perl.com/CPAN> to find a
+CPAN site near you.
+
+Copyright
+---------
+
+(c) 2001, Adam Spiers <adam@spiers.net>, all rights reserved.
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
