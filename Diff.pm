@@ -7,9 +7,9 @@ use vars qw(@EXPORT_OK);
 @EXPORT_OK = qw(parse_arg diff_dbs);
 
 use MySQL::Database;
-use MySQL::Utils qw(available_dbs parse_arg debug);
+use MySQL::Utils qw(parse_arg debug);
 
-our $VERSION = '0.28';
+our $VERSION = '0.29';
 
 sub diff_dbs {
   my ($opts, @db) = @_;
@@ -52,10 +52,12 @@ sub diff_dbs {
     }
   }
 
+  my $out = '';
   if (@changes) {
-    diff_banner(@db);
-    print @changes;
+    $out .= diff_banner(@db);
+    $out .= join '', @changes;
   }
+  return $out;
 }
 
 sub diff_banner {
@@ -65,7 +67,7 @@ sub diff_banner {
   my $summary2 = $db[1]->summary();
 
   my $now = scalar localtime();
-  print <<EOF;
+  return <<EOF;
 ## mysqldiff $VERSION
 ## 
 ## run on $now
@@ -82,7 +84,7 @@ sub diff_tables {
                  diff_primary_key(@_),
                  diff_options(@_));
   if (@changes) {
-    $changes[-1] .= "\n";
+    $changes[-1] =~ s/\n*$/\n/;
   }
   return @changes;
 }

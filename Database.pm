@@ -4,7 +4,7 @@ use strict;
 
 use Carp qw(:DEFAULT cluck);
 
-use MySQL::Utils qw(auth_args debug);
+use MySQL::Utils qw(debug auth_args_string read_file);
 use MySQL::Table;
 
 sub new {
@@ -15,45 +15,13 @@ sub new {
 
   debug(2, "  constructing new MySQL::Database\n");
 
-  my $args = auth_args(%p);
-  debug(3, "    auth args: $args\n");
+  $self->parse_auth_args($p{auth});
 
   if ($p{file}) {
-    $self->{_source} = { file => $p{file} };
-    debug(3, "    fetching table defs from file $p{file}\n");
-
-# FIXME: option to avoid create-and-dump bit
-    # create a temporary database using defs from file ...
-    # hopefully the temp db is unique!
-    my $temp_db = sprintf "test_mysqldiff_temp_%d_%d", time(), $$;
-    debug(3, "    creating temporary database $temp_db\n");
-
-    open(DEFS, $p{file})
-      or die "Couldn't open `$p{file}': $!\n";
-    open(MYSQL, "| mysql $args")
-      or die "Couldn't execute `mysql$args': $!\n";
-    print MYSQL <<EOF;
-CREATE DATABASE $temp_db;
-USE $temp_db;
-EOF
-    print MYSQL <DEFS>;
-    close(DEFS);
-    close(MYSQL);
-
-    # ... and then retrieve defs from mysqldump.  Hence we've used
-    # MySQL to massage the defs file into canonical form.
-    $self->_get_defs($temp_db, $args);
-
-    debug(3, "    dropping temporary database $temp_db\n");
-    open(MYSQL, "| mysql $args")
-      or die "Couldn't execute `mysql$args': $!\n";
-    print MYSQL "DROP DATABASE $temp_db;\n";
-    close(MYSQL);
+    $self->canonicalise_file($p{file});
   }
   elsif ($p{db}) {
-    $self->{_source} = { db => $p{db}, auth => $args };
-    debug(3, "    fetching table defs from db $p{db}\n");
-    $self->_get_defs($p{db}, $args);
+    $self->read_db($p{db});
   }
   else {
     confess "MySQL::Database::new called without db or file params";
@@ -64,14 +32,74 @@ EOF
   return $self;
 }
 
+sub parse_auth_args {
+  my $self = shift;
+  my ($args) = @_;
+  my $string = auth_args_string(%$args);
+  debug(3, "    auth args: $string\n");
+  $self->{_source}{auth} = $string;
+}
+
+sub canonicalise_file {
+  my $self = shift;
+  my ($file) = @_;
+
+  $self->{_source}{file} = $file;
+  debug(3, "    fetching table defs from file $file\n");
+
+# FIXME: option to avoid create-and-dump bit
+  # create a temporary database using defs from file ...
+  # hopefully the temp db is unique!
+  my $temp_db = sprintf "test_mysqldiff_temp_%d_%d", time(), $$;
+  debug(3, "    creating temporary database $temp_db\n");
+  
+  my $defs = join '', read_file($file);
+  die "$file contains dangerous command '$1'; aborting.\n"
+    if $defs =~ /;\s*(use|((drop|create)\s+database))\s/i;
+  
+  my $args = $self->auth_args;
+  open(MYSQL, "| mysql $args")
+    or die "Couldn't execute `mysql$args': $!\n";
+  print MYSQL <<EOF;
+CREATE DATABASE $temp_db;
+USE $temp_db;
+EOF
+  print MYSQL $defs;
+  close(MYSQL);
+
+  # ... and then retrieve defs from mysqldump.  Hence we've used
+  # MySQL to massage the defs file into canonical form.
+  $self->_get_defs($temp_db);
+
+  debug(3, "    dropping temporary database $temp_db\n");
+  open(MYSQL, "| mysql $args")
+    or die "Couldn't execute `mysql$args': $!\n";
+  print MYSQL "DROP DATABASE $temp_db;\n";
+  close(MYSQL);
+}
+
+sub read_db {
+  my $self = shift;
+  my ($db) = @_;
+  $self->{_source}{db} = $db;
+  debug(3, "    fetching table defs from db $db\n");
+  $self->_get_defs($db);
+}
+
+sub auth_args {
+  my $self = shift;
+  return $self->{_source}{auth};
+}
+
 sub _get_defs {
   my $self = shift;
-  my ($db, $args) = @_;
+  my ($db) = @_;
 
+  my $args = $self->auth_args;
   open(MYSQLDUMP, "mysqldump -d $args $db |")
       or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
   debug(3, "    running mysqldump -d $args $db\n");
-  $self->{_defs} = [ <MYSQLDUMP> ];
+  my $defs = $self->{_defs} = [ <MYSQLDUMP> ];
   close(MYSQLDUMP);
 }
 
@@ -91,6 +119,11 @@ sub _parse_defs {
     push @{$self->{_tables}}, $obj;
     $self->{_by_name}{$obj->name()} = $obj;
   }
+}
+
+sub name {
+  my $self = shift;
+  return $self->{_source}{file} || $self->{_source}{db};
 }
 
 sub tables {

@@ -30,7 +30,7 @@ use MySQL::Diff qw(parse_arg diff_dbs);
 use MySQL::Utils qw(debug_level);
 
 my %opts = ();
-GetOptions(\%opts, "help|?", "debug|d:i",
+GetOptions(\%opts, "help|?", "debug|d:i", "apply|a",
            "keep-old-tables|k", "no-old-defs|n", "only-both|o", "table-re|t=s",
            "host|h=s",   "port|P=s", "user|u=s",   "password|p:s",
            "host1|h1=s", "port1|P1=s", "user1|u1=s", "password1|p1:s",
@@ -57,10 +57,13 @@ for my $num (0, 1) {
   $db[$num] = $new_db;
 }
 
-diff_dbs(\%opts, @db);
+my $diffs = diff_dbs(\%opts, @db);
+print $diffs;
+apply($diffs) if $opts{apply};
+
+exit 0;
 
 ##############################################################################
-#
 
 sub usage {
   print STDERR @_, "\n" if @_;
@@ -69,6 +72,7 @@ Usage: $Script [ options ] <database1> <database2>
 
 Options:
   -?,  --help             show this help
+  -A,  --apply            Interactively patch database1 to match database2
   -d,  --debug[=N]        enable debugging [level N, default 1]
   -o,  --only-both        only output changes for tables in both databases
   -k,  --keep-old-tables  don't output DROP TABLE commands
@@ -94,3 +98,28 @@ If there is an ambiguity, the file will be preferred;
 to prevent this prefix the database argument with `db:'.
 EOF
 }
+
+sub apply {
+  my ($diffs) = @_;
+
+  if (! $diffs) {
+    print "No differences to apply.\n";
+    exit 0;
+  }
+
+  my $db0 = $db[0]->name;
+  print "\nApply above changes to $db0 [y/N] ? ";
+  print "\n(CAUTION! Changes contain DROP TABLE commands.) "
+    if $diffs =~ /\bDROP TABLE\b/i;
+  my $reply = <STDIN>;
+  return unless $reply =~ /^y(es)?$/i;
+
+  my $args = $db[0]->auth_args;
+  my $pipe = "mysql$args $db0";
+  open(PATCH, "|$pipe")
+    or die "Couldn't open pipe to '$pipe': $!\n";
+  print PATCH $diffs;
+  close(PATCH) or die "Couldn't close pipe: $!\n";
+  print "Changes applied.\n";
+}
+

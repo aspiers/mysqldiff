@@ -3,26 +3,7 @@ package MySQL::Utils;
 use strict;
 
 use base qw(Exporter);
-use vars qw(@EXPORT_OK);
-@EXPORT_OK = qw(available_dbs auth_args parse_arg debug_level debug);
-
-sub available_dbs {
-  my %auth = @_;
-  my $args = auth_args(%auth);
-  
-  # evil but we don't use DBI because I don't want to implement -p properly
-  # not that this works with -p anyway ...
-  open(MYSQLSHOW, "mysqlshow$args |")
-    or die "Couldn't execute `mysqlshow$args': $!\n";
-  my @dbs = ();
-  while (<MYSQLSHOW>) {
-    next unless /^\| (\w+)/;
-    push @dbs, $1;
-  }
-  close(MYSQLSHOW) or die "mysqlshow$args failed: $!";
-
-  return map { $_ => 1 } @dbs;
-}
+our @EXPORT_OK = qw(parse_arg auth_args_string read_file debug_level debug);
 
 sub parse_arg {
   my ($opts, $arg, $num) = @_;
@@ -40,7 +21,7 @@ sub parse_arg {
   }
 
   if ($arg =~ /^db:(.*)/) {
-    return new MySQL::Database(db => $1, %auth);
+    return new MySQL::Database(db => $1, auth => \%auth);
   }
 
   if ($opts{"host$authnum"}     ||
@@ -49,30 +30,56 @@ sub parse_arg {
       $opts{"password$authnum"} ||
       $opts{"socket$authnum"})
   {
-    return new MySQL::Database(db => $arg, %auth);
+    return new MySQL::Database(db => $arg, auth => \%auth);
   }
 
   if (-e $arg) {
-    return new MySQL::Database(file => $arg, %auth);
+    return new MySQL::Database(file => $arg, auth => \%auth);
   }
 
   my %dbs = available_dbs(%auth);
   debug(2, "  available databases: ", (join ', ', keys %dbs), "\n");
 
   if ($dbs{$arg}) {
-    return new MySQL::Database(db => $arg, %auth);
+    return new MySQL::Database(db => $arg, auth => \%auth);
   }
 
   return "`$arg' is not a valid file or database.\n";
 }
 
-sub auth_args {
+sub available_dbs {
+  my %auth = @_;
+  my $args = auth_args_string(%auth);
+  
+  # evil but we don't use DBI because I don't want to implement -p properly
+  # not that this works with -p anyway ...
+  open(MYSQLSHOW, "mysqlshow$args |")
+    or die "Couldn't execute `mysqlshow$args': $!\n";
+  my @dbs = ();
+  while (<MYSQLSHOW>) {
+    next unless /^\| (\w+)/;
+    push @dbs, $1;
+  }
+  close(MYSQLSHOW) or die "mysqlshow$args failed: $!";
+
+  return map { $_ => 1 } @dbs;
+}
+
+sub auth_args_string {
   my %auth = @_;
   my $args = '';
   for my $arg (qw/host port user password socket/) {
     $args .= " --$arg=$auth{$arg}" if $auth{$arg};
   }
   return $args;
+}
+
+sub read_file {
+  my ($file) = @_;
+  open(FILE, $file) or die "Couldn't open `$file': $!\n";
+  my @contents = <FILE>;
+  close(FILE);
+  return @contents;
 }
 
 {
