@@ -34,6 +34,7 @@ GetOptions(\%opts, "help|?", "debug|d:i",
            "host|h=s",   "user|u=s",   "password|p:s",
            "host1|h1=s", "user1|u1=s", "password1|p1:s",
            "host2|h2=s", "user2|u2=s", "password2|p2:s",
+           "hack|o"
           );
 
 if (@ARGV != 2 or $opts{help}) {
@@ -169,13 +170,20 @@ sub diff_fields {
   my @changes = ();
   
   foreach my $field (keys %fields1) {
-    if ($fields2{$field}) {
-      if ($fields1{$field} ne $fields2{$field}) {
-        debug(4, "      field `$field' changed\n");
-        my $change = "ALTER TABLE $name1 CHANGE COLUMN $field $field $fields2{$field};";
-        $change .= " # was $fields1{$field}" unless $opts{'no-old-defs'};
-        $change .= "\n";
-        push @changes, $change;
+    my $f1 = $fields1{$field};
+    if (my $f2 = $fields2{$field}) {
+      if ($f1 ne $f2) {
+        if (not $opts{hack} or (($f1 !~ m/$f2\(\d+,\d+\)/) and
+                                ($f1 ne "$f2 DEFAULT '' NOT NULL") and
+                                ($f1 ne "$f2 NOT NULL")
+                               )) {
+          debug(4, "      field `$field' changed\n");
+
+          my $change = "ALTER TABLE $name1 CHANGE COLUMN $field $field $f2;";
+          $change .= " # was $f1" unless $opts{'no-old-defs'};
+          $change .= "\n";
+          push @changes, $change;
+        }
       }
     }
     else {
