@@ -29,7 +29,7 @@ use FindBin qw($Script);
 use Getopt::Long;
 
 my %opts = ();
-GetOptions(\%opts, "help|?",
+GetOptions(\%opts, "help|?", "debug|d:i",
            "host|h=s",   "user|u=s",   "password|p:s",
            "host1|h1=s", "user1|u1=s", "password1|p1:s",
            "host2|h2=s", "user2|u2=s", "password2|p2:s",
@@ -39,6 +39,9 @@ if (@ARGV != 2 or $opts{help}) {
   usage();
   exit 1;
 }
+
+$opts{debug}++ if exists $opts{debug} && $opts{debug} == 0;
+my $debug = $opts{debug} || 0;
 
 my @db = ();
 for my $num (0, 1) {
@@ -59,6 +62,8 @@ Usage: $Script [ options ] <database1> <database2>
 
 Options:
   -?,  --help             show this help
+  -d,  --debug[=N]        enable debugging [level N, default 1]
+
   -h,  --host=...         connect to host
   -u,  --user=...         user for login if not current user
   -p,  --password[=...]   password to use when connecting to server
@@ -77,15 +82,19 @@ EOF
 sub diff_dbs {
   my @db = @_;
 
+  debug(1, "comparing databases\n");
+
   my @changes = ();
-  
+
   foreach my $table1 ($db[0]->tables()) {
     my $name = $table1->name();
+    debug(2, "  looking at tables called `$name'\n");
     if (my $table2 = $db[1]->table_by_name($name)) {
+      debug(4, "    comparing tables called `$name'\n");
       push @changes, diff_tables($table1, $table2);
     }
     else {
-      # table in db1, but not db2
+      debug(3, "    table `$name' dropped\n");
       push @changes, "DROP TABLE $name;\n\n";
     }
   }
@@ -93,7 +102,7 @@ sub diff_dbs {
   foreach my $table2 ($db[1]->tables()) {
     my $name = $table2->name();
     if (! $db[0]->table_by_name($name)) {
-      # table in db2, but not db1
+      debug(3, "    table `$name' added\n");
       push @changes, $table2->def() . "\n";
     }
   }
@@ -145,11 +154,13 @@ sub diff_fields {
   foreach my $field (keys %fields1) {
     if ($fields2{$field}) {
       if ($fields1{$field} ne $fields2{$field}) {
+        debug(4, "      field `$field' changed\n");
         push @changes,
              "ALTER TABLE $name1 CHANGE COLUMN $field $fields2{$field};\n";
       }
     }
     else {
+      debug(4, "      field `$field' removed\n");
       push @changes,
            "ALTER TABLE $name1 DROP COLUMN $field;\n";
     }
@@ -157,6 +168,7 @@ sub diff_fields {
 
   foreach my $field (keys %fields2) {
     if (! $fields1{$field}) {
+      debug(4, "      field `$field' added\n");
       push @changes,
            "ALTER TABLE $name1 ADD COLUMN $field $fields2{$field};\n";
     }
@@ -177,20 +189,31 @@ sub diff_indices {
 
   foreach my $index (keys %indices1) {
     if ($indices2{$index}) {
-      if ($indices1{$index} ne $indices2{$index}) {
-        push @changes, <<EOF
-ALTER TABLE $name1 DROP INDEX $index;
-ALTER TABLE $name1 ADD INDEX $index ($indices2{$index});
+      if ($indices1{$index} ne $indices2{$index} ||
+          ($table1->is_unique_index($index)
+             xor
+           $table2->is_unique_index($index)))
+      {
+        debug(4, "      index `$index' changed\n");
+        my $new_type = $table2->is_unique_index($index) ? 'UNIQUE' : 'INDEX';
+        my $changes = '';
+        $changes .= "ALTER TABLE $name1 DROP INDEX $index;\n"
+          if $indices1{$index};
+        $changes .= <<EOF;
+ALTER TABLE $name1 ADD $new_type $index ($indices2{$index});
 EOF
+        push @changes, $changes;
       }
     }
     else {
+      debug(4, "      index `$index' removed\n");
       push @changes, "ALTER TABLE $name1 DROP INDEX $index;\n";
     }
   }
 
   foreach my $index (keys %indices2) {
     if (! $indices1{$index}) {
+      debug(4, "      index `$index' added\n");
       push @changes,
            "ALTER TABLE $name1 ADD INDEX $index ($indices2{$index});\n";
     }
@@ -210,6 +233,7 @@ sub diff_primary_key {
   my @changes = ();
   
   if (($primary1 xor $primary2) or ($primary1 ne $primary2)) {
+    debug(4, "      primary key changed\n");
     push @changes, <<EOF;
 ALTER TABLE $name1 DROP PRIMARY KEY;
 ALTER TABLE $name1 ADD PRIMARY KEY ($primary2);
@@ -251,6 +275,8 @@ sub available_dbs {
 sub parse_arg {
   my ($arg, $num) = @_;
 
+  debug(1, "parsing arg $num: `$arg'\n");
+
   my %auth = ();
   for my $auth (qw/host user password/) {
     $auth{$auth} = $opts{"$auth$num"} || $opts{$auth};
@@ -270,6 +296,7 @@ sub parse_arg {
   }
 
   my %dbs = available_dbs(%auth);
+  debug(2, "  available databases: ", (join ', ', keys %dbs), "\n");
 
   if ($dbs{$arg}) {
     return new MySQL::Database(db => $arg, %auth);
@@ -279,6 +306,10 @@ sub parse_arg {
   exit 1;
 }
 
+sub debug {
+  my $level = shift;
+  print STDERR @_ if $debug >= $level && @_;
+}
 
 ##############################################################################
 #
@@ -287,21 +318,28 @@ package MySQL::Database;
 
 use Carp qw(:DEFAULT cluck);
 
+sub debug { &::debug }
+
 sub new {
   my $class = shift;
   my %p = @_;
   my $self = {};
   bless $self, ref $class || $class;
 
+  debug(2, "  constructing new MySQL::Database\n");
+
   my $args = &::auth_args(%p);
+  debug(3, "    auth args: $args\n");
 
   if ($p{file}) {
     $self->{_source} = { file => $p{file} };
+    debug(3, "    fetching table defs from file $p{file}\n");
 
 # FIXME: option to avoid create-and-dump bit
     # create a temporary database using defs from file ...
     # hopefully the temp db is unique!
     my $temp_db = sprintf "test_mysqldiff_temp_%d_%d", time(), $$;
+    debug(3, "    creating temporary database $temp_db\n");
 
     open(DEFS, $p{file})
       or die "Couldn't open `$p{file}': $!\n";
@@ -323,6 +361,7 @@ EOF
   }
   elsif ($p{db}) {
     $self->{_source} = { db => $p{db}, auth => $args };
+    debug(3, "    fetching table defs from db $p{db}\n");
     $self->_get_defs($p{db}, $args);
   }
   else {
@@ -340,6 +379,7 @@ sub _get_defs {
   
   open(MYSQLDUMP, "mysqldump -d $args $db |")
       or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
+  debug(3, "    running mysqldump -d $args $db\n");
   $self->{_defs} = [ <MYSQLDUMP> ];
   close(MYSQLDUMP);
 }
@@ -349,6 +389,7 @@ sub _parse_defs {
 
   return if $self->{_tables};
 
+  debug(3, "    parsing table defs\n");
   my $defs = join '', grep ! /^\s*\#/, @{$self->{_defs}};
   my @tables = split /(?=^\s*create\s+table)/im, $defs;
   foreach my $table (@tables) {
@@ -380,8 +421,9 @@ sub summary {
     my $args = $self->{_source}{auth};
     $args =~ tr/-//d;
     $args =~ s/\bpassword=\S+//;
+    $args =~ s/^\s*(.*?)\s*$/$1/;
     my $summary = "  db: " . $self->{_source}{db};
-    $summary .= " ($args)" if $args =~ /\S/;
+    $summary .= " ($args)" if $args;
     return $summary;
   }
   else {
@@ -396,11 +438,15 @@ package MySQL::Table;
 
 use Carp qw(:DEFAULT cluck);
 
+sub debug { &::debug }
+
 sub new {
   my $class = shift;
   my %p = @_;
   my $self = {};
   bless $self, ref $class || $class;
+
+  debug(4, "      constructing new MySQL::Table\n");
 
   if (! $p{def}) {
     croak "MySQL::Table::new called without def params";
@@ -422,9 +468,12 @@ sub parse {
   $self->{_lines} = [ grep ! /^\s*$/, split /(?=^)/m, $def ];
   my @lines = @{$self->{_lines}};
 
+  debug(5, "        parsing table def\n");
+
   my $name;
   if ($lines[0] =~ /^\s*create\s+table\s+(\S+)\s+\(\s*$/i) {
     $name = $self->{_name} = $1;
+    debug(5, "        got table name `$name'\n");
     shift @lines;
   }
   else {
@@ -444,14 +493,19 @@ sub parse {
             $self->{_primary_key}, "'\n"
         if $self->{_primary_key};
       $self->{_primary_key} = $primary;
+      debug(6, "          got primary key `$primary'\n");
       next;
     }
 
-    if (/^KEY\s+(\S+?)\s+\((.*)\)$/) {
-      my ($key, $val) = ($1, $2);
-      croak "`KEY $key' duplicated in table `$name'\n"
+    if (/^(KEY|UNIQUE)\s+(\S+?)\s+\((.*)\)$/) {
+      my ($type, $key, $val) = ($1, $2, $3);
+      croak "index `$key' duplicated in table `$name'\n"
         if $self->{_indices}{$key};
       $self->{_indices}{$key} = $val;
+      $self->{_unique_index}{$key} = ($type =~ /unique/i) ? 1 : 0;
+      debug(6, "          got ",
+               ($type =~ /unique/i) ? 'unique ' : '',
+               "index key `$key': ($val)\n");
       next;
     }
 
@@ -460,6 +514,7 @@ sub parse {
       croak "definition for field `$field' duplicated in table `$name'\n"
         if $self->{_fields}{$field};
       $self->{_fields}{$field} = $def;
+      debug(6, "          got field def `$field': $def\n");
       next;
     }
 
@@ -472,9 +527,10 @@ sub parse {
   }
 }
 
-sub def           { $_[0]->{_def}            }
-sub name          { $_[0]->{_name}           }
-sub source        { $_[0]->{_source}         }
-sub fields        { $_[0]->{_fields}  || {}  }
-sub indices       { $_[0]->{_indices} || {}  }
-sub primary_key   { $_[0]->{_primary_key}    }
+sub def             { $_[0]->{_def}                 }
+sub name            { $_[0]->{_name}                }
+sub source          { $_[0]->{_source}              }
+sub fields          { $_[0]->{_fields}  || {}       }
+sub indices         { $_[0]->{_indices} || {}       }
+sub primary_key     { $_[0]->{_primary_key}         }
+sub is_unique_index { $_[0]->{_unique_index}{$_[1]} }
