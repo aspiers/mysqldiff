@@ -1,17 +1,10 @@
-README for MySQL::Diff
+README for MySQL-Diff
 
-                              MySQL::Diff
-                              ===========
+                              MySQL-Diff
+                             ============
 
-MySQL::Diff is Perl module for comparing the table structure
-of two MySQL databases.
-
-Shameless plug
---------------
-
-This software was originally written as part of the
-<http://www.guideguide.com/> project.  If you like hacking Perl in a
-cool environment, come and work for us!
+MySQL-Diff is suite of Perl modules and accompanying CLI script for
+comparing the table structure of two MySQL databases.
 
 Prerequisites
 -------------
@@ -21,7 +14,7 @@ This suite probably requires Perl 5.005 or higher.
 Availability
 ------------
 
-The latest version of MySQL::Diff is available from
+The latest version of MySQL-Diff is available from
 
   http://adamspiers.org/computing/mysqldiff/
 
@@ -32,7 +25,7 @@ Comprehensive Perl Archive Network (CPAN).  Visit
 Installation
 ------------
 
-See INSTALL.
+See INSTALL file.
 
 Documentation
 -------------
@@ -46,33 +39,16 @@ Support
 -------
 
 Questions, bug reports, useful code bits, and suggestions for
-MySQL::Diff should just be sent to me at <mysqldiff@adamspiers.org>.
+MySQL-Diff should just be sent to me at <mysqldiff@adamspiers.org>.
 
 Known bugs
 ----------
 
-Reported by users and confirmed:
-
-  * Reference to non-existant routine maybe_index_auto_col().
-    Huh?!  [John Violette]
-
-Reported by users but unconfirmed:
-
-  * If '-P1 3337' is one of the arguments it doesn't seem to get
-    passed to the arguments for mysqldump (according to the
-    debugging).  [Darrell Taylor]
-
-  * # mysqldiff --user=root --password=xxxx -B demo tables.sql
-    Duplicate specification "password|p:s" for option "p"
-    Duplicate specification "password1|p1:s" for option "p1"
-    Duplicate specification "password2|p2:s" for option "p2"
-    [John Smith]
-
-All easy to fix but I'm so short on time!  Patches welcome ...
+See BUGS file.
 
 Copyright
 ---------
 
-(c) 2001, Adam Spiers <mysqldiff@adamspiers.org>, all rights reserved.
-This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+(c) 2001--2003, Adam Spiers <mysqldiff@adamspiers.org>, all rights
+reserved.  This program is free software; you can redistribute it
+and/or modify it under the same terms as Perl itself.

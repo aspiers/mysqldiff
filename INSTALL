@@ -1,29 +1,80 @@
-(Please consult the README to check that you have a new enough version
-of Perl.)
+First please consult the README to check that you have a new enough
+version of Perl.
 
-If you use a new-ish CPAN.pm which automatically follows dependencies,
-the following should suffice:
+(N.B. the rest of this document looks a great deal more complicated
+than it actually is, mainly because I'm trying to encourage people to
+do the Right Things by using CPANPLUS instead of CPAN, and
+Module::Build instead of ExtUtils::MakeMaker.)
+
+
+"Automatic" installation via CPANPLUS.pm or CPAN.pm
+=========================================================================
+
+Ideally, use CPANPLUS.pm to install it, which is much nicer than
+CPAN.pm (CPANPLUS will appear in Perl core in version 5.10, under an
+as-yet undetermined name, and CPAN.pm will be deprecated).  
+
+To install CPANPLUS.pm:
+
+  $ perl -MCPAN -e 'install CPANPLUS'
+
+Then it should be as easy as:
+
+  $ perl -MCPANPLUS -e 'install MySQL::Diff'
+
+and you're done.
+
+Alternatively, if you use a new-ish CPAN.pm which automatically
+follows dependencies, the following might work:
 
   $ perl -MCPAN -e 'install MySQL::Diff'
 
+(The point to all of this is that the Class::MakeMethods::* suites get
+installed, which MySQL::Diff depends on to run.)
+
 Otherwise ...
 
-You can install MySQL::Diff, as you would install any perl module
-library, by running these commands:
 
-   perl Makefile.PL
-   make
-   make test
-   make install
+"Manual" installation
+=========================================================================
+
+First ensure you have Class::MakeMethods::* installed.
+
+Then there are two options:
+
+1) Install via Module::Build (recommended)
+--------------------------------------------
+
+Ensure that Module::Build is installed, e.g.
+
+  $ perl -MCPAN -e 'install Module::Build'
+
+or
+
+  $ perl -MCPANPLUS -e 'install MySQL::Diff'
+
+Then run these commands:
+
+   perl Build.PL
+   perl Build
+   perl Build test
+   perl Build install
+
+2) Install via ExtUtils::MakeMaker (deprecated but simpler)
+-------------------------------------------------------------
+
+If you want to install a private copy in your home directory, then you
+should try to produce the initial Makefile with something like this:
+
+   perl Build.PL config='lib=/home/me/perl'
+
+
+And finally ...
+=========================================================================
 
 Note that the test suite will not run properly unless you have
 a MySQL server which it can connect to.
 
-If you want to install a private copy in your home directory, then you
-should try to produce the initial Makefile with something like this
-command:
-
-   perl Makefile.PL LIB=~/perl
-
 If you want to use the command-line based front-end mysqldiff.pl, you
 should copy it to somewhere on your $PATH.
+

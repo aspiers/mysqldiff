@@ -1,11 +1,13 @@
+BUGS
+Build.PL
 ChangeLog
-Database.pm
-Diff.pm
 INSTALL
 MANIFEST
 Makefile.PL
 README
-Table.pm
-Utils.pm
+lib/MySQL/Database.pm
+lib/MySQL/Diff.pm
+lib/MySQL/Table.pm
+lib/MySQL/Utils.pm
 mysqldiff
 t/all.t
