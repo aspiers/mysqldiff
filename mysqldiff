@@ -1,0 +1,382 @@
+#!/usr/bin/perl -w
+#
+# mysqldiff
+#
+# Utility to compare table definitions in two MySQL databases,
+# and output a patch in the format of ALTER TABLE statements
+# which converts the first database structure into in the second.
+#
+# Adam Spiers <adam@spiers.net>
+
+use strict;
+
+use Carp qw(:DEFAULT cluck);
+use FindBin qw($Script);
+use Getopt::Long;
+
+my %opts = ();
+GetOptions(\%opts, "help|?",
+           "host|h=s",   "user|u=s",   "password|p:s",
+           "host1|h1=s", "user1|u1=s", "password1|p1:s",
+           "host2|h2=s", "user2|u2=s", "password2|p2:s",
+          );
+
+if (@ARGV != 2 or $opts{help}) {
+  usage();
+  exit 1;
+}
+
+my @db = ();
+for my $num (0, 1) {
+  $db[$num] = parse_arg($ARGV[$num], $num);
+}
+
+diff_dbs(@db);
+
+exit 0;
+
+##############################################################################
+#
+
+sub usage {
+  print STDERR @_, "\n" if @_;
+  die <<EOF;
+Usage: $Script [ options ] <database1> <database2>
+
+Options:
+  -?, --help            show this help
+  -h, --host=...        connect to host
+  -u, --user=...        user for login if not current user
+  -p, --password[=...]  password to use when connecting to server
+
+Databases can be either files or database names.
+If there is an ambiguity, the file will be preferred;
+to prevent this prefix the database argument with `db:'.
+EOF
+}
+
+sub diff_dbs {
+  my @db = @_;
+
+  foreach my $table1 ($db[0]->tables()) {
+    my $name = $table1->name();
+    if (my $table2 = $db[1]->table_by_name($name)) {
+      diff_tables($table1, $table2);
+    }
+    else {
+      # table in db1, but not db2
+      print "DROP TABLE $name;\n\n";
+    }
+  }
+
+  foreach my $table2 ($db[1]->tables()) {
+    my $name = $table2->name();
+    if (! $db[0]->table_by_name($name)) {
+      # table in db2, but not db1
+      print $table2->def, "\n";
+    }
+  }
+}
+
+sub diff_tables {
+  my $changes = diff_fields(@_) +
+                diff_keys(@_)   +
+                diff_primary_key(@_);
+  print "\n" if $changes;
+}
+
+sub diff_fields {
+  my ($table1, $table2) = @_;
+
+  my $name1 = $table1->name();
+
+  my %fields1 = %{ $table1->fields() };
+  my %fields2 = %{ $table2->fields() };
+
+  my $changes = 0;
+  
+  foreach my $field (keys %fields1) {
+    if ($fields2{$field}) {
+      if ($fields1{$field} ne $fields2{$field}) {
+        print "ALTER TABLE $name1 CHANGE COLUMN $field $fields2{$field};\n";
+        $changes++;
+      }
+    }
+    else {
+      print "ALTER TABLE $name1 DROP COLUMN $field;\n";
+      $changes++;
+    }
+  }
+
+  foreach my $field (keys %fields2) {
+    if (! $fields1{$field}) {
+      print "ALTER TABLE $name1 ADD COLUMN $field $fields2{$field};\n";
+      $changes++;
+    }
+  }
+
+  return $changes;
+}
+
+sub diff_keys {
+  my ($table1, $table2) = @_;
+#FIXME
+  return 0;
+}
+
+sub diff_primary_key {
+  my ($table1, $table2) = @_;
+
+  my $name1 = $table1->name();
+
+  my $primary1 = $table1->primary_key();
+  my $primary2 = $table2->primary_key();
+
+  if ($primary1 ne $primary2) {
+    print <<EOF;
+ALTER TABLE $name1 DROP PRIMARY KEY;
+ALTER TABLE $name1 ADD PRIMARY KEY ($primary2);
+EOF
+    return 1;
+  }
+
+  return 0;
+}
+
+##############################################################################
+
+sub auth_args {
+  my %auth = @_;
+  my $args = '';
+  for my $arg (qw/host user password/) {
+    $args .= " --$arg=$auth{$arg}" if $auth{$arg};
+  }
+  return $args;
+}
+
+sub available_dbs {
+  my %auth = @_;
+  my $args = auth_args(%auth);
+  
+  # evil but we don't use DBI because I don't want to implement -p properly
+  # not that this works with -p anyway ...
+  open(MYSQLSHOW, "mysqlshow$args |")
+    or die "Couldn't execute `mysqlshow$args': $!\n";
+  my @dbs = ();
+  while (<MYSQLSHOW>) {
+    next unless /^\| (\w+)/;
+    push @dbs, $1;
+  }
+  close(MYSQLSHOW);
+
+  return map { $_ => 1 } @dbs;
+}
+
+sub parse_arg {
+  my ($arg, $num) = @_;
+
+  my %auth = ();
+  for my $auth (qw/host user password/) {
+    $auth{$auth} = $opts{"$auth$num"} || $opts{$auth};
+    delete $auth{$auth} unless $auth{$auth};
+  }
+
+  if ($opts{"host$num"} || $opts{"user$num"} || $opts{"password$num"} ||
+      $arg =~ /^db:(.*)/)
+  {
+    return new MySQL::Database(db => $1, %auth);
+  }
+
+  if (-e $arg) {
+    return new MySQL::Database(file => $arg, %auth);
+  }
+
+  my %dbs = available_dbs(%auth);
+
+  if ($dbs{$arg}) {
+    return new MySQL::Database(db => $arg, %auth);
+  }
+
+  usage("`$arg' is not a valid file or database.\n");
+  exit 1;
+}
+
+
+##############################################################################
+#
+
+package MySQL::Database;
+
+use Carp qw(:DEFAULT cluck);
+
+sub new {
+  my $class = shift;
+  my %p = @_;
+  my $self = {};
+  bless $self, ref $class || $class;
+
+  my $args = &::auth_args(%p);
+
+  if ($p{file}) {
+    $self->{_source} = { file => $p{file} };
+
+    # create a temporary database using defs from file ...
+    # hopefully the temp db is unique!
+    my $temp_db = sprintf "mysqldiff_temp_%d_%d", time(), $$;
+
+    open(DEFS, $p{file})
+      or die "Couldn't open `$p{file}': $!\n";
+    open(MYSQL, "| mysql $args")
+      or die "Couldn't execute `mysql$args': $!\n";
+    print MYSQL <<EOF;
+CREATE DATABASE $temp_db;
+USE $temp_db;
+EOF
+    print MYSQL <DEFS>;
+    close(DEFS);
+
+    # ... and then retrieve defs from mysqldump.  Hence we've used
+    # MySQL to massage the defs file into canonical form.
+    $self->_get_defs($temp_db, $args);
+
+    print MYSQL "DROP DATABASE $temp_db;\n";
+    close(MYSQL);
+  }
+  elsif ($p{db}) {
+    $self->{_source} = { db => $p{db}, auth => $args };
+    $self->_get_defs($p{db}, $args);
+  }
+  else {
+    confess "MySQL::Database::new called without db or file params";
+  }
+
+  $self->_parse_defs();
+
+  return $self;
+}
+
+sub _get_defs {
+  my $self = shift;
+  my ($db, $args) = @_;
+  
+  open(MYSQLDUMP, "mysqldump -d $args $db |")
+      or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
+  $self->{_defs} = [ <MYSQLDUMP> ];
+  close(MYSQLDUMP);
+}
+
+sub _parse_defs {
+  my $self = shift;
+
+  return if $self->{_tables};
+
+  my $defs = join '', grep ! /^\s*\#/, @{$self->{_defs}};
+  my @tables = split /(?=^\s*create\s+table)/im, $defs;
+  foreach my $table (@tables) {
+    next unless $table =~ /create\s+table/i;
+    my $obj = MySQL::Table->new(source => $self->{_source},
+                                def => $table);
+    push @{$self->{_tables}}, $obj;
+    $self->{_by_name}{$obj->name()} = $obj;
+  }
+}
+
+sub tables {
+  return @{$_[0]->{_tables}};
+}
+
+sub table_by_name {
+  my $self = shift;
+  my ($name) = @_;
+  return $self->{_by_name}{$name};
+}
+
+##############################################################################
+#
+
+package MySQL::Table;
+
+use Carp qw(:DEFAULT cluck);
+
+sub new {
+  my $class = shift;
+  my %p = @_;
+  my $self = {};
+  bless $self, ref $class || $class;
+
+  if (! $p{def}) {
+    croak "MySQL::Table::new called without def params";
+  }
+
+  $self->parse($p{def});
+
+  $self->{_source} = $p{source};
+
+  return $self;
+}
+
+sub parse {
+  my $self = shift;
+  my ($def) = @_;
+
+  $def =~ s/\n+/\n/;
+  $self->{_def} = $def;
+  $self->{_lines} = [ grep ! /^\s*$/, split /(?=^)/m, $def ];
+  my @lines = @{$self->{_lines}};
+
+  my $name;
+  if ($lines[0] =~ /^\s*create\s+table\s+(\S+)\s+\(\s*$/i) {
+    $name = $self->{_name} = $1;
+    shift @lines;
+  }
+  else {
+    croak "couldn't figure out table name";
+  }
+
+  while (@lines) {
+    $_ = shift @lines;
+    s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
+    if (/^\);$/) {
+      last;
+    }
+
+    if (/^PRIMARY\s+KEY\s+(.+)$/) {
+      my $primary = $1;
+      croak "two primary keys in table `$name': `$primary', `",
+            $self->{_primary_key}, "'\n"
+        if $self->{_primary_key};
+      $self->{_primary_key} = $primary;
+      next;
+    }
+
+    if (/^KEY\s+(\S+?)\s+\((.*)\)$/) {
+      my ($key, $val) = ($1, $2);
+      croak "`KEY $key' duplicated in table `$name'\n"
+        if $self->{_key_fields}{$key};
+      $self->{_key_fields}{$key} = $val;
+      next;
+    }
+
+    if (/^(\S+)\s*(.*)/) {
+      my ($field, $def) = ($1, $2);
+      croak "definition for field `$field' duplicated in table `$name'\n"
+        if $self->{_fields}{$field};
+      $self->{_fields}{$field} = $def;
+      next;
+    }
+
+    croak "unparsable line in definition for table `$name':\n$_";
+  }
+
+  if (@lines) {
+    my $name = $self->name();
+    warn "table `$name' had trailing garbage:\n", join '', @lines;
+  }
+}
+
+sub def           { $_[0]->{_def}         }
+sub name          { $_[0]->{_name}        }
+sub source        { $_[0]->{_source}      }
+sub fields        { $_[0]->{_fields}      }
+sub key_fields    { $_[0]->{_key_fields}  }
+sub primary_key   { $_[0]->{_primary_key} }
