@@ -10,7 +10,7 @@ use MySQL::Database;
 use MySQL::Utils qw(auth_args debug);
 
 use vars qw($VERSION);
-$VERSION = '0.25';
+$VERSION = '0.26';
 
 sub available_dbs {
   my %auth = @_;
