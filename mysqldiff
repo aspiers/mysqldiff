@@ -35,6 +35,7 @@ GetOptions(\%opts, "help|?", "debug|d:i",
            "host|h=s",   "user|u=s",   "password|p:s",
            "host1|h1=s", "user1|u1=s", "password1|p1:s",
            "host2|h2=s", "user2|u2=s", "password2|p2:s",
+           "socket|s=s", "socket1|s1=s", "socket2|s2=s",
            "tolerant|i"
           );
 
@@ -77,11 +78,13 @@ Options:
   -h,  --host=...         connect to host
   -u,  --user=...         user for login if not current user
   -p,  --password[=...]   password to use when connecting to server
+  -s,  --socket=...       socket to use when connecting to server
 
 for <databaseN> only, where N == 1 or 2,
   -hN, --hostN=...        connect to host
   -uN, --userN=...        user for login if not current user
   -pN, --passwordN[=...]  password to use when connecting to server
+  -sN, --socketN=...      socket to use when connecting to server
 
 Databases can be either files or database names.
 If there is an ambiguity, the file will be preferred;

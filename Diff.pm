@@ -7,68 +7,10 @@ use vars qw(@EXPORT_OK);
 @EXPORT_OK = qw(parse_arg diff_dbs);
 
 use MySQL::Database;
-use MySQL::Utils qw(auth_args debug);
+use MySQL::Utils qw(available_dbs parse_arg debug);
 
 use vars qw($VERSION);
-$VERSION = '0.26';
-
-sub available_dbs {
-  my %auth = @_;
-  my $args = auth_args(%auth);
-  
-  # evil but we don't use DBI because I don't want to implement -p properly
-  # not that this works with -p anyway ...
-  open(MYSQLSHOW, "mysqlshow$args |")
-    or die "Couldn't execute `mysqlshow$args': $!\n";
-  my @dbs = ();
-  while (<MYSQLSHOW>) {
-    next unless /^\| (\w+)/;
-    push @dbs, $1;
-  }
-  close(MYSQLSHOW) or die "mysqlshow$args failed: $!";
-
-  return map { $_ => 1 } @dbs;
-}
-
-sub parse_arg {
-  my ($opts, $arg, $num) = @_;
-
-  my %opts = %$opts;
-
-  debug(1, "parsing arg $num: `$arg'\n");
-
-  my $authnum = $num + 1;
-  
-  my %auth = ();
-  for my $auth (qw/host user password/) {
-    $auth{$auth} = $opts{"$auth$authnum"} || $opts{$auth};
-    delete $auth{$auth} unless $auth{$auth};
-  }
-
-  if ($arg =~ /^db:(.*)/) {
-    return new MySQL::Database(db => $1, %auth);
-  }
-
-  if ($opts{"host$authnum"} ||
-      $opts{"user$authnum"} ||
-      $opts{"password$authnum"})
-  {
-    return new MySQL::Database(db => $arg, %auth);
-  }
-
-  if (-e $arg) {
-    return new MySQL::Database(file => $arg, %auth);
-  }
-
-  my %dbs = available_dbs(%auth);
-  debug(2, "  available databases: ", (join ', ', keys %dbs), "\n");
-
-  if ($dbs{$arg}) {
-    return new MySQL::Database(db => $arg, %auth);
-  }
-
-  return "`$arg' is not a valid file or database.\n";
-}
+$VERSION = '0.27';
 
 sub diff_dbs {
   my ($opts, @db) = @_;
