@@ -49,9 +49,6 @@ sub parse {
   while (@lines) {
     $_ = shift @lines;
     s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
-    if (/^\);$/) {
-      last;
-    }
 
     if (/^PRIMARY\s+KEY\s+(.+)$/) {
       my $primary = $1;
@@ -75,7 +72,7 @@ sub parse {
       next;
     }
 
-    if (/^\s*\)\s*(.*?);\s*$/) { # end of table definition
+    if (/^\)\s*(.*?);$/) { # end of table definition
       my $options = $self->{_options} = $1;
       debug(6, "          got table options `$options'\n");
       last;
