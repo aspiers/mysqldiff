@@ -30,7 +30,7 @@ use MySQL::Diff qw(parse_arg diff_dbs);
 use MySQL::Utils qw(debug_level);
 
 my %opts = ();
-GetOptions(\%opts, "help|?", "debug|d:i", "apply|a",
+GetOptions(\%opts, "help|?", "debug|d:i", "apply|A", "batch-apply|B",
            "keep-old-tables|k", "no-old-defs|n", "only-both|o", "table-re|t=s",
            "host|h=s",   "port|P=s", "user|u=s",   "password|p:s",
            "host1|h1=s", "port1|P1=s", "user1|u1=s", "password1|p1:s",
@@ -60,7 +60,7 @@ for my $num (0, 1) {
 $| = 1;
 my $diffs = diff_dbs(\%opts, @db);
 print $diffs;
-apply($diffs) if $opts{apply};
+apply($diffs) if $opts{apply} || $opts{'batch-apply'};
 
 exit 0;
 
@@ -74,6 +74,7 @@ Usage: $Script [ options ] <database1> <database2>
 Options:
   -?,  --help             show this help
   -A,  --apply            interactively patch database1 to match database2
+  -B,  --batch-apply      non-interactively patch database1 to match database2
   -d,  --debug[=N]        enable debugging [level N, default 1]
   -o,  --only-both        only output changes for tables in both databases
   -k,  --keep-old-tables  don't output DROP TABLE commands
@@ -113,11 +114,13 @@ sub apply {
     die "$db0 is not a database; cannot apply changes.\n";
   }
 
-  print "\nApply above changes to $db0 [y/N] ? ";
-  print "\n(CAUTION! Changes contain DROP TABLE commands.) "
-    if $diffs =~ /\bDROP TABLE\b/i;
-  my $reply = <STDIN>;
-  return unless $reply =~ /^y(es)?$/i;
+  unless ($opts{'batch-apply'}) {
+    print "\nApply above changes to $db0 [y/N] ? ";
+    print "\n(CAUTION! Changes contain DROP TABLE commands.) "
+      if $diffs =~ /\bDROP TABLE\b/i;
+    my $reply = <STDIN>;
+    return unless $reply =~ /^y(es)?$/i;
+  }
 
   print "Applying changes ... ";
   my $args = $db[0]->auth_args;
