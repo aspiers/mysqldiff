@@ -1,5 +1,7 @@
 package MySQL::Table;
 
+use strict;
+
 use Carp qw(:DEFAULT cluck);
 
 use MySQL::Utils qw(debug);
@@ -73,6 +75,12 @@ sub parse {
       next;
     }
 
+    if (/^\s*\)\s*(.*?);\s*$/) { # end of table definition
+      my $options = $self->{_options} = $1;
+      debug(6, "          got table options `$options'\n");
+      last;
+    }
+
     if (/^(\S+)\s*(.*)/) {
       my ($field, $def) = ($1, $2);
       croak "definition for field `$field' duplicated in table `$name'\n"
@@ -85,10 +93,11 @@ sub parse {
     croak "unparsable line in definition for table `$name':\n$_";
   }
 
-  if (@lines) {
-    my $name = $self->name();
-    warn "table `$name' had trailing garbage:\n", join '', @lines;
-  }
+  warn "table `$name' didn't have terminator\n"
+    unless defined $self->{_options};
+
+  warn "table `$name' had trailing garbage:\n", join '', @lines
+    if @lines;
 }
 
 sub def             { $_[0]->{_def}                 }
@@ -98,6 +107,6 @@ sub fields          { $_[0]->{_fields}  || {}       }
 sub indices         { $_[0]->{_indices} || {}       }
 sub primary_key     { $_[0]->{_primary_key}         }
 sub is_unique_index { $_[0]->{_unique_index}{$_[1]} }
-
+sub options         { $_[0]->{_options}             }
 
 1;

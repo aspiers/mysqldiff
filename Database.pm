@@ -1,5 +1,7 @@
 package MySQL::Database;
 
+use strict;
+
 use Carp qw(:DEFAULT cluck);
 
 use MySQL::Utils qw(auth_args debug);

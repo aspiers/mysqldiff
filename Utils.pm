@@ -1,5 +1,7 @@
 package MySQL::Utils;
 
+use strict;
+
 use base qw(Exporter);
 use vars qw(@EXPORT_OK);
 @EXPORT_OK = qw(auth_args debug_level debug);

@@ -1,5 +1,7 @@
 package MySQL::Diff;
 
+use strict;
+
 use base qw(Exporter);
 use vars qw(@EXPORT_OK);
 @EXPORT_OK = qw(parse_arg diff_dbs);
@@ -72,6 +74,7 @@ sub diff_dbs {
   my ($opts, @db) = @_;
 
   my %opts = %$opts;
+  my $table_re = $opts{'table-re'};
 
   debug(1, "comparing databases\n");
 
@@ -80,13 +83,13 @@ sub diff_dbs {
   foreach my $table1 ($db[0]->tables()) {
     my $name = $table1->name();
     if ($table_re && $name !~ $table_re) {
-      debug(2, "  table `$name' didn't match $opts{'table-re'}; ignoring\n");
+      debug(2, "  table `$name' didn't match /$table_re/; ignoring\n");
       next;
     }
     debug(2, "  looking at tables called `$name'\n");
     if (my $table2 = $db[1]->table_by_name($name)) {
       debug(4, "    comparing tables called `$name'\n");
-      push @changes, diff_tables($table1, $table2);
+      push @changes, diff_tables($opts, $table1, $table2);
     }
     else {
       debug(3, "    table `$name' dropped\n");
@@ -135,7 +138,8 @@ EOF
 sub diff_tables {
   my @changes = (diff_fields(@_),
                  diff_indices(@_),
-                 diff_primary_key(@_));
+                 diff_primary_key(@_),
+                 diff_options(@_));
   if (@changes) {
     $changes[-1] .= "\n";
   }
@@ -143,8 +147,9 @@ sub diff_tables {
 }
 
 sub diff_fields {
-  my ($table1, $table2) = @_;
+  my ($opts, $table1, $table2) = @_;
 
+  my %opts = %$opts;
   my $name1 = $table1->name();
 
   my %fields1 = %{ $table1->fields() };
@@ -190,8 +195,9 @@ sub diff_fields {
 }
 
 sub diff_indices {
-  my ($table1, $table2) = @_;
+  my ($opts, $table1, $table2) = @_;
 
+  my %opts = %$opts;
   my $name1 = $table1->name();
 
   my %indices1 = %{ $table1->indices() };
@@ -245,8 +251,9 @@ EOF
 }
 
 sub diff_primary_key {
-  my ($table1, $table2) = @_;
+  my ($opts, $table1, $table2) = @_;
 
+  my %opts = %$opts;
   my $name1 = $table1->name();
 
   my $primary1 = $table1->primary_key();
@@ -254,6 +261,8 @@ sub diff_primary_key {
 
   return () unless $primary1 || $primary2;
 
+  my @changes = ();
+  
   if ($primary1 && ! $primary2) {
     debug(4, "      primary key `$primary1' dropped\n");
     my $change = "ALTER TABLE $name1 DROP PRIMARY KEY;";
@@ -280,5 +289,24 @@ EOF
   return @changes;
 }
 
+sub diff_options {
+  my ($opts, $table1, $table2) = @_;
+
+  my %opts = %$opts;
+  my $options1 = $table1->options();
+  my $options2 = $table2->options();
+  my $name     = $table1->name();
+
+  my @changes = ();
+  
+  if ($options1 ne $options2) {
+    my $change = "ALTER TABLE $name $options2;";
+    $change .= " # was " . ($options1 || 'blank') unless $opts{'no-old-defs'};
+    $change .= "\n";
+    push @changes, $change;
+  }
+
+  return @changes;
+}
 
 1;
