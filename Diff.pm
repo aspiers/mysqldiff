@@ -94,12 +94,13 @@ sub diff_fields {
   my %opts = %$opts;
   my $name1 = $table1->name();
 
-  my %fields1 = %{ $table1->fields() };
-  my %fields2 = %{ $table2->fields() };
+  my %fields1 = $table1->fields;
+  my %fields2 = $table2->fields;
 
   my @changes = ();
   
   foreach my $field (keys %fields1) {
+    debug(5, "      table1 had field `$field'\n");
     my $f1 = $fields1{$field};
     if (my $f2 = $fields2{$field}) {
       if ($f1 ne $f2) {
