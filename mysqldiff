@@ -107,7 +107,11 @@ sub apply {
     exit 0;
   }
 
-  my $db0 = $db[0]->name;
+  my $db0  = $db[0]->name;
+  if ($db[0]->source_type ne 'db') {
+    die "$db0 is not a database; cannot apply changes.\n";
+  }
+
   print "\nApply above changes to $db0 [y/N] ? ";
   print "\n(CAUTION! Changes contain DROP TABLE commands.) "
     if $diffs =~ /\bDROP TABLE\b/i;

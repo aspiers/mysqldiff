@@ -136,6 +136,12 @@ sub table_by_name {
   return $self->{_by_name}{$name};
 }
 
+sub source_type {
+  my $self = shift;
+  return 'file' if $self->{_source}{file};
+  return 'db'   if $self->{_source}{db};
+}
+
 sub summary {
   my $self = shift;
   
