@@ -26,7 +26,7 @@ use FindBin qw($RealBin $Script);
 use lib $RealBin;
 use Getopt::Long;
 
-use MySQLdiff qw(parse_arg diff_dbs);
+use MySQL::Diff qw(parse_arg diff_dbs);
 use MySQL::Utils qw(debug_level);
 
 my %opts = ();
