@@ -9,7 +9,7 @@ use vars qw(@EXPORT_OK);
 use MySQL::Database;
 use MySQL::Utils qw(parse_arg debug);
 
-our $VERSION = '0.31';
+our $VERSION = '0.32';
 
 sub diff_dbs {
   my ($opts, @db) = @_;
