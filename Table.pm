@@ -56,7 +56,7 @@ sub parse {
       my ($type, $key, $val) = ($1, $2, $3);
       croak "index `$key' duplicated in table `$name'\n"
         if $self->indices($key);
-      $self->indices($key, $val);
+      $self->indices_push($key, $val);
       my $unique = $type =~ /unique/i;
       $self->unique_index($key, $unique);
       debug(6, "          got ",
@@ -69,7 +69,7 @@ sub parse {
       my ($type, $key, $val) = ($1, $2, $3);
       croak "FULLTEXT index `$key' duplicated in table `$name'\n"
         if $self->fulltext($key);
-      $self->fulltext($key, $val);
+      $self->fulltext_push($key, $val);
       debug(6, "          got FULLTEXT index `$key': ($val)\n");
       next;
     }
@@ -84,7 +84,7 @@ sub parse {
       my ($field, $def) = ($1, $2);
       croak "definition for field `$field' duplicated in table `$name'\n"
         if $self->fields($field);
-      $self->fields($field, $def);
+      $self->fields_push($field, $def);
       debug(6, "          got field def `$field': $def\n");
       next;
     }
