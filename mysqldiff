@@ -20,7 +20,7 @@
 use strict;
 
 use vars qw($VERSION);
-$VERSION = '0.20';
+$VERSION = '0.22';
 
 require 5.004;
 
@@ -29,7 +29,7 @@ use FindBin qw($Script);
 use Getopt::Long;
 
 my %opts = ();
-GetOptions(\%opts, "help|?", "debug|d:i", "no-old-defs|n",
+GetOptions(\%opts, "help|?", "debug|d:i", "no-old-defs|n", "only-both|o",
            "host|h=s",   "user|u=s",   "password|p:s",
            "host1|h1=s", "user1|u1=s", "password1|p1:s",
            "host2|h2=s", "user2|u2=s", "password2|p2:s",
@@ -63,6 +63,7 @@ Usage: $Script [ options ] <database1> <database2>
 Options:
   -?,  --help             show this help
   -d,  --debug[=N]        enable debugging [level N, default 1]
+  -o,  --only-both        only output changes for tables in both databases
   -n,  --no-old-defs      suppress comments describing old definitions
 
   -h,  --host=...         connect to host
@@ -96,7 +97,8 @@ sub diff_dbs {
     }
     else {
       debug(3, "    table `$name' dropped\n");
-      push @changes, "DROP TABLE $name;\n\n";
+      push @changes, "DROP TABLE $name;\n\n"
+        unless $opts{'only-both'};
     }
   }
 
@@ -104,7 +106,8 @@ sub diff_dbs {
     my $name = $table2->name();
     if (! $db[0]->table_by_name($name)) {
       debug(3, "    table `$name' added\n");
-      push @changes, $table2->def() . "\n";
+      push @changes, $table2->def() . "\n"
+        unless $opts{'only-both'};
     }
   }
 
