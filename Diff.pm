@@ -214,7 +214,7 @@ sub diff_primary_key {
 
   if (! $primary1 && $primary2) {
     debug(4, "      primary key `$primary2' added\n");
-    return ("ALTER TABLE $name1 ADD PRIMARY KEY ($primary2);\n");
+    return ("ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n");
   }
 
   if ($primary1 ne $primary2) {
