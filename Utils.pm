@@ -34,7 +34,7 @@ sub parse_arg {
   my $authnum = $num + 1;
   
   my %auth = ();
-  for my $auth (qw/host user password/) {
+  for my $auth (qw/host user password socket/) {
     $auth{$auth} = $opts{"$auth$authnum"} || $opts{$auth};
     delete $auth{$auth} unless $auth{$auth};
   }
