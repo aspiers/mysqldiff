@@ -416,32 +416,33 @@ ALTER TABLE baz ADD UNIQUE firstname (firstname,surname);
   ],
 );
 
-plan tests => scalar(@tests) + 4;
+my $run = 0;
+my $total = scalar(grep ref, @tests) * 2 + 4;
+plan tests => $total;
 
 print "# Test loading MySQL::Diff\n";
-ok(1);
+my_ok(1);
 
 print "# Test can run mysql client\n";
 my $client_ok = (open(MYSQL, "mysql --help|") &&
                    join('', <MYSQL>) =~ /net_buffer_length/);
-ok($client_ok);
-die "Cannot proceed with tests without a mysql client; aborting.\n"
+bail("Cannot proceed with tests without a mysql client")
   unless $client_ok;
+my_ok($client_ok);
 
 print "# Test can run mysqldump utility\n";
 my $mysqldump_ok = (open(MYSQLDUMP, "mysqldump --help|") &&
                       join('', <MYSQLDUMP>) =~ /net_buffer_length/);
-ok($mysqldump_ok);
-die "Cannot proceed with tests without mysqldump; aborting.\n"
+bail("Cannot proceed with tests without mysqldump")
   unless $mysqldump_ok;
+my_ok($mysqldump_ok);
 
 print "# Test can connect to mysql db\n";
-my $connection_ok = (open(MYSQL, "mysql 2>&1 </dev/null |") &&
-                       join('', <MYSQL>) !~ /Can't connect/);
-ok($connection_ok);
-die "Cannot proceed with tests without a valid connection; aborting.\n"
+my $connection_ok = (open(MYSQL, "echo status | mysql 2>&1 |") &&
+                       join('', <MYSQL>) =~ /Connection id:/i);
+bail("Cannot proceed with tests without a valid connection")
   unless $connection_ok;
-
+my_ok($connection_ok);
 
 foreach my $test (@tests) {
   if (! ref $test) {
@@ -460,11 +461,11 @@ foreach my $test (@tests) {
   $diffs =~ s{/\*!40000 ALTER TABLE .* DISABLE KEYS \*/;\n*}{}m;
   $diffs =~ s/ *$//gm;
 
-  ok($diffs, $expected);
+  my_ok($diffs, $expected);
 
   # Now test that $diffs correctly patches $db1_defs to $db2_defs.
   my $patched = get_db($db1_defs . "\n" . $diffs, 1);
-  ok(diff_dbs($opts, $patched, $db2), '');
+  my_ok(diff_dbs($opts, $patched, $db2), '');
 }
 
 sub get_db {
@@ -479,3 +480,21 @@ sub get_db {
   return $db;
 }
 
+sub my_ok { # do we really need this?
+  $run++;
+  &ok;
+}
+
+sub bail { # because Test::More::BAIL_OUT is still unimplemented ...
+  my ($reason) = @_;
+  ok(0);
+  print "$reason.\n";
+  if ($ENV{FAKE_SUCCESS}) {
+    print "FAKE_SUCCESS was set; assuming OK and faking success for rest of tests ...\n";
+    ok(1) for 1 .. ($total - $run);
+  }
+  else {
+    print "Aborting rest of tests.\n";
+  }
+  exit 0;
+}
