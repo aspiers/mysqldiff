@@ -34,7 +34,7 @@ sub parse_arg {
   my $authnum = $num + 1;
   
   my %auth = ();
-  for my $auth (qw/host user password socket/) {
+  for my $auth (qw/host port user password socket/) {
     $auth{$auth} = $opts{"$auth$authnum"} || $opts{$auth};
     delete $auth{$auth} unless $auth{$auth};
   }
@@ -44,6 +44,7 @@ sub parse_arg {
   }
 
   if ($opts{"host$authnum"}     ||
+      $opts{"port$authnum"}     ||
       $opts{"user$authnum"}     ||
       $opts{"password$authnum"} ||
       $opts{"socket$authnum"})
@@ -68,7 +69,7 @@ sub parse_arg {
 sub auth_args {
   my %auth = @_;
   my $args = '';
-  for my $arg (qw/host user password socket/) {
+  for my $arg (qw/host port user password socket/) {
     $args .= " --$arg=$auth{$arg}" if $auth{$arg};
   }
   return $args;

@@ -32,9 +32,9 @@ use MySQL::Utils qw(debug_level);
 my %opts = ();
 GetOptions(\%opts, "help|?", "debug|d:i",
            "no-old-defs|n", "only-both|o", "table-re|t=s",
-           "host|h=s",   "user|u=s",   "password|p:s",
-           "host1|h1=s", "user1|u1=s", "password1|p1:s",
-           "host2|h2=s", "user2|u2=s", "password2|p2:s",
+           "host|h=s",   "port|P=s", "user|u=s",   "password|p:s",
+           "host1|h1=s", "port1|P1=s", "user1|u1=s", "password1|p1:s",
+           "host2|h2=s", "port2|P2=s", "user2|u2=s", "password2|p2:s",
            "socket|s=s", "socket1|s1=s", "socket2|s2=s",
            "tolerant|i"
           );
@@ -76,12 +76,14 @@ Options:
   -i,  --tolerant         ignore DEFAULT and formatting changes
 
   -h,  --host=...         connect to host
+  -P,  --port=...         use this port for connection
   -u,  --user=...         user for login if not current user
   -p,  --password[=...]   password to use when connecting to server
   -s,  --socket=...       socket to use when connecting to server
 
 for <databaseN> only, where N == 1 or 2,
   -hN, --hostN=...        connect to host
+  -PN, --portN=...        use this port for connection
   -uN, --userN=...        user for login if not current user
   -pN, --passwordN[=...]  password to use when connecting to server
   -sN, --socketN=...      socket to use when connecting to server
