@@ -83,6 +83,7 @@ sub _parse_defs {
   debug(3, "    parsing table defs\n");
   my $defs = join '', grep ! /^\s*\#/, @{$self->{_defs}};
   my @tables = split /(?=^\s*create\s+table\s+)/im, $defs;
+  $self->{_tables} = [];
   foreach my $table (@tables) {
     next unless $table =~ /create\s+table/i;
     my $obj = MySQL::Table->new(source => $self->{_source},
