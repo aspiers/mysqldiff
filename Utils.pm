@@ -33,7 +33,7 @@ sub parse_arg {
     return new MySQL::Database(db => $arg, auth => \%auth);
   }
 
-  if (-e $arg) {
+  if (-f $arg) {
     return new MySQL::Database(file => $arg, auth => \%auth);
   }
 
