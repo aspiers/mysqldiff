@@ -51,7 +51,9 @@ $table_re = qr/$opts{'table-re'}/ if $opts{'table-re'};
 
 my @db = ();
 for my $num (0, 1) {
-  $db[$num] = parse_arg(\%opts, $ARGV[$num], $num);
+  my $new_db = parse_arg(\%opts, $ARGV[$num], $num);
+  usage($new_db) unless ref $new_db;
+  $db[$num] = $new_db;
 }
 
 diff_dbs(\%opts, @db);
