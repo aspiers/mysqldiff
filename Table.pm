@@ -95,6 +95,9 @@ sub parse {
   warn "table `$name' didn't have terminator\n"
     unless defined $self->options;
 
+  @lines = grep ! m{^/\*!40000 ALTER TABLE \Q$name\E DISABLE KEYS \*/;},
+                @lines;
+
   warn "table `$name' had trailing garbage:\n", join '', @lines
     if @lines;
 }
