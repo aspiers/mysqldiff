@@ -257,10 +257,12 @@ sub parse_arg {
     delete $auth{$auth} unless $auth{$auth};
   }
 
-  if ($opts{"host$num"} || $opts{"user$num"} || $opts{"password$num"} ||
-      $arg =~ /^db:(.*)/)
-  {
+  if ($arg =~ /^db:(.*)/) {
     return new MySQL::Database(db => $1, %auth);
+  }
+
+  if ($opts{"host$num"} || $opts{"user$num"} || $opts{"password$num"}) {
+    return new MySQL::Database(db => $arg, %auth);
   }
 
   if (-e $arg) {
