@@ -436,7 +436,7 @@ die "Cannot proceed with tests without mysqldump; aborting.\n"
   unless $mysqldump_ok;
 
 print "# Test can connect to mysql db\n";
-my $connection_ok = (open(MYSQL, "mysql 2>&1 |") &&
+my $connection_ok = (open(MYSQL, "mysql 2>&1 </dev/null |") &&
                        join('', <MYSQL>) !~ /Can't connect/);
 ok($connection_ok);
 die "Cannot proceed with tests without a valid connection; aborting.\n"
