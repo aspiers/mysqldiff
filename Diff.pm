@@ -252,11 +252,24 @@ sub diff_primary_key {
   my $primary1 = $table1->primary_key();
   my $primary2 = $table2->primary_key();
 
-  my @changes = ();
-  if (($primary1 xor $primary2) || ($primary1 && ($primary1 ne $primary2))) {
+  return () unless $primary1 || $primary2;
+
+  if ($primary1 && ! $primary2) {
+    debug(4, "      primary key `$primary1' dropped\n");
+    my $change = "ALTER TABLE $name1 DROP PRIMARY KEY;";
+    $change .= " # was $primary1" unless $opts{'no-old-defs'};
+    return ( "$change\n" );
+  }
+
+  if (! $primary1 && $primary2) {
+    debug(4, "      primary key `$primary2' added\n");
+    return ("ALTER TABLE $name1 ADD PRIMARY KEY ($primary2);\n");
+  }
+
+  if ($primary1 ne $primary2) {
     debug(4, "      primary key changed\n");
     my $change = "ALTER TABLE $name1 DROP PRIMARY KEY;";
-    $change .= " # was ($primary1)" unless $opts{'no-old-defs'};
+    $change .= " # was $primary1" unless $opts{'no-old-defs'};
     $change .= <<EOF;
 
 ALTER TABLE $name1 ADD PRIMARY KEY ($primary2);
