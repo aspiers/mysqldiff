@@ -1,4 +1,4 @@
-package MySQLdiff;
+package MySQL::Diff;
 
 use base qw(Exporter);
 use vars qw(@EXPORT_OK);
