@@ -72,7 +72,7 @@ Usage: $Script [ options ] <database1> <database2>
 
 Options:
   -?,  --help             show this help
-  -A,  --apply            Interactively patch database1 to match database2
+  -A,  --apply            interactively patch database1 to match database2
   -d,  --debug[=N]        enable debugging [level N, default 1]
   -o,  --only-both        only output changes for tables in both databases
   -k,  --keep-old-tables  don't output DROP TABLE commands
