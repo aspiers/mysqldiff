@@ -28,14 +28,14 @@ Documentation
 
 See: http://adamspiers.org/computing/mysqldiff/
 
-At some stage I'll get round to including proper POD-format documentation.
-(Patches welcome ;-)
+At some stage I'll get round to including proper POD-format
+documentation and tests.  (Patches welcome ;-)
 
 Support
 -------
 
 Questions, bug reports, useful code bits, and suggestions for
-MySQL::Diff should just be sent to me at <adam@spiers.net>.
+MySQL::Diff should just be sent to me at <mysqldiff@adamspiers.org>.
 
 Availability
 ------------
@@ -51,6 +51,6 @@ Comprehensive Perl Archive Network (CPAN).  Visit
 Copyright
 ---------
 
-(c) 2001, Adam Spiers <adam@spiers.net>, all rights reserved.
+(c) 2001, Adam Spiers <mysqldiff@adamspiers.org>, all rights reserved.
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
