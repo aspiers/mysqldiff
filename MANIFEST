@@ -7,5 +7,5 @@ Makefile.PL
 README
 Table.pm
 Utils.pm
-mysqldiff.pl
+mysqldiff
 test.pl
