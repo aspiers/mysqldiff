@@ -172,7 +172,7 @@ sub diff_fields {
     if ($fields2{$field}) {
       if ($fields1{$field} ne $fields2{$field}) {
         debug(4, "      field `$field' changed\n");
-        my $change = "ALTER TABLE $name1 CHANGE COLUMN $field $fields2{$field};";
+        my $change = "ALTER TABLE $name1 CHANGE COLUMN $field $field $fields2{$field};";
         $change .= " # was $fields1{$field}" unless $opts{'no-old-defs'};
         $change .= "\n";
         push @changes, $change;
