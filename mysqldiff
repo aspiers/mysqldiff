@@ -29,7 +29,7 @@ use FindBin qw($Script);
 use Getopt::Long;
 
 my %opts = ();
-GetOptions(\%opts, "help|?", "debug|d:i",
+GetOptions(\%opts, "help|?", "debug|d:i", "no-old-defs|n",
            "host|h=s",   "user|u=s",   "password|p:s",
            "host1|h1=s", "user1|u1=s", "password1|p1:s",
            "host2|h2=s", "user2|u2=s", "password2|p2:s",
@@ -63,6 +63,7 @@ Usage: $Script [ options ] <database1> <database2>
 Options:
   -?,  --help             show this help
   -d,  --debug[=N]        enable debugging [level N, default 1]
+  -n,  --no-old-defs      suppress comments describing old definitions
 
   -h,  --host=...         connect to host
   -u,  --user=...         user for login if not current user
@@ -155,22 +156,25 @@ sub diff_fields {
     if ($fields2{$field}) {
       if ($fields1{$field} ne $fields2{$field}) {
         debug(4, "      field `$field' changed\n");
-        push @changes,
-             "ALTER TABLE $name1 CHANGE COLUMN $field $fields2{$field};\n";
+        my $change = "ALTER TABLE $name1 CHANGE COLUMN $field $fields2{$field};";
+        $change .= " # was $fields1{$field}" unless $opts{'no-old-defs'};
+        $change .= "\n";
+        push @changes, $change;
       }
     }
     else {
       debug(4, "      field `$field' removed\n");
-      push @changes,
-           "ALTER TABLE $name1 DROP COLUMN $field;\n";
+      my $change = "ALTER TABLE $name1 DROP COLUMN $field;";
+      $change .= " # was $fields1{$field}" unless $opts{'no-old-defs'};
+      $change .= "\n";
+      push @changes, $change;
     }
   }
 
   foreach my $field (keys %fields2) {
     if (! $fields1{$field}) {
       debug(4, "      field `$field' added\n");
-      push @changes,
-           "ALTER TABLE $name1 ADD COLUMN $field $fields2{$field};\n";
+      push @changes, "ALTER TABLE $name1 ADD COLUMN $field $fields2{$field};\n";
     }
   }
 
@@ -188,6 +192,8 @@ sub diff_indices {
   my @changes = ();
 
   foreach my $index (keys %indices1) {
+    my $old_type = $table1->is_unique_index($index) ? 'UNIQUE' : 'INDEX';
+
     if ($indices2{$index}) {
       if ($indices1{$index} ne $indices2{$index} ||
           ($table1->is_unique_index($index)
@@ -196,9 +202,14 @@ sub diff_indices {
       {
         debug(4, "      index `$index' changed\n");
         my $new_type = $table2->is_unique_index($index) ? 'UNIQUE' : 'INDEX';
+
         my $changes = '';
-        $changes .= "ALTER TABLE $name1 DROP INDEX $index;\n"
-          if $indices1{$index};
+        if ($indices1{$index}) {
+          $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
+          $changes .= " # was $old_type ($indices1{$index})" unless $opts{'no-old-defs'};
+          $changes .= "\n";
+        }
+
         $changes .= <<EOF;
 ALTER TABLE $name1 ADD $new_type $index ($indices2{$index});
 EOF
@@ -207,7 +218,10 @@ EOF
     }
     else {
       debug(4, "      index `$index' removed\n");
-      push @changes, "ALTER TABLE $name1 DROP INDEX $index;\n";
+      my $change = "ALTER TABLE $name1 DROP INDEX $index;";
+      $change .= " # was $old_type ($indices1{$index})" unless $opts{'no-old-defs'};
+      $change .= "\n";
+      push @changes, $change;
     }
   }
 
@@ -234,10 +248,13 @@ sub diff_primary_key {
   
   if (($primary1 xor $primary2) or ($primary1 ne $primary2)) {
     debug(4, "      primary key changed\n");
-    push @changes, <<EOF;
-ALTER TABLE $name1 DROP PRIMARY KEY;
+    my $change = "ALTER TABLE $name1 DROP PRIMARY KEY;";
+    $change .= " # was ($primary1)" unless $opts{'no-old-defs'};
+    $change .= <<EOF;
+
 ALTER TABLE $name1 ADD PRIMARY KEY ($primary2);
 EOF
+    push @changes, $change;
   }
 
   return @changes;
