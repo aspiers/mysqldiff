@@ -8,9 +8,11 @@ WriteMakefile(
 );
 
 sub MY::postamble {
+  # Nasty hacks for getting the code to co-exist with guideguide CVS;
+  # needn't concern anyone else.
+  return '' unless -e '../mysqldiff';
+
   <<'EOF';
-# Nasty hacks for getting the code to co-exist with guideguide CVS;
-# needn't concern anyone else.
 mysqldiff.pl: ../mysqldiff
 	ln -s $< $@
 
