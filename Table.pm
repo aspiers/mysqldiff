@@ -58,7 +58,7 @@ sub parse {
         if $self->indices($key);
       $self->indices_push($key, $val);
       my $unique = $type =~ /unique/i;
-      $self->unique_index($key, $unique);
+      $self->unique_index_push($key, $unique);
       debug(6, "          got ",
                $unique ? 'unique ' : '',
                "index key `$key': ($val)\n");

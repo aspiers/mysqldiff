@@ -159,7 +159,7 @@ sub diff_indices {
     my $old_type = $table1->unique_index($index) ? 'UNIQUE' : 'INDEX';
 
     if ($indices2{$index}) {
-      if ($indices1{$index} ne $indices2{$index} ||
+      if (($indices1{$index} ne $indices2{$index}) or
           ($table1->unique_index($index)
              xor
            $table2->unique_index($index)))
@@ -167,19 +167,14 @@ sub diff_indices {
         debug(4, "      index `$index' changed\n");
         my $new_type = $table2->unique_index($index) ? 'UNIQUE' : 'INDEX';
 
-        my $changes = <<EOF;
+        my $changes = "ALTER TABLE $name1 DROP INDEX $index;";
+        $changes .= " # was $old_type ($indices1{$index})"
+          unless $opts{'no-old-defs'};
+        $changes .= "\n";
+
+        $changes .= <<EOF;
 ALTER TABLE $name1 ADD $new_type $index ($indices2{$index});
 EOF
-        if ($indices1{$index}) {
-          $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
-          $changes .= " # was $old_type ($indices1{$index})"
-            unless $opts{'no-old-defs'};
-          $changes .= "\n";
-        }
-        else {
-          die "Should this ever happen?  I can't think why it would.\n";
-        }
-
         push @changes, $changes;
       }
     }

@@ -90,6 +90,14 @@ CREATE TABLE baz (
   UNIQUE (firstname, surname)
 );
 ',
+
+  baz3 => '
+CREATE TABLE baz (
+  firstname CHAR(16),
+  surname   CHAR(16),
+  KEY (firstname, surname)
+);
+',
 );
 
 my @tests = (
@@ -375,6 +383,37 @@ ALTER TABLE bar DROP INDEX id; # was UNIQUE (id,name,age)
 ',
   ],
 
+  [
+    {},
+    $tables{baz2},
+    $tables{baz3},
+    '## mysqldiff <VERSION>
+##
+## Run on <DATE>
+##
+## --- file: tmp.db1
+## +++ file: tmp.db2
+
+ALTER TABLE baz DROP INDEX firstname; # was UNIQUE (firstname,surname)
+ALTER TABLE baz ADD INDEX firstname (firstname,surname);
+',
+  ],
+
+  [
+    {},
+    $tables{baz3},
+    $tables{baz2},
+    '## mysqldiff <VERSION>
+##
+## Run on <DATE>
+##
+## --- file: tmp.db1
+## +++ file: tmp.db2
+
+ALTER TABLE baz DROP INDEX firstname; # was INDEX (firstname,surname)
+ALTER TABLE baz ADD UNIQUE firstname (firstname,surname);
+',
+  ],
 );
 
 plan tests => scalar(@tests) + 3;
@@ -404,6 +443,7 @@ foreach my $test (@tests) {
   my $diffs = diff_dbs($opts, $db1, $db2);
   $diffs =~ s/^## mysqldiff [\d.]+/## mysqldiff <VERSION>/m;
   $diffs =~ s/^## Run on .*/## Run on <DATE>/m;
+  $diffs =~ s{/\*!40000 ALTER TABLE .* DISABLE KEYS \*/;\n*}{}m;
   $diffs =~ s/ *$//gm;
 
   ok($diffs, $expected);
