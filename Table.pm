@@ -59,7 +59,7 @@ sub parse {
             $self->{_primary_key}, "'\n"
         if $self->{_primary_key};
       $self->{_primary_key} = $primary;
-      debug(6, "          got primary key `$primary'\n");
+      debug(6, "          got primary key $primary\n");
       next;
     }
 
