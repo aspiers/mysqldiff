@@ -36,7 +36,7 @@ sub diff_dbs {
     else {
       debug(3, "    table `$name' dropped\n");
       push @changes, "DROP TABLE $name;\n\n"
-        unless $opts{'only-both'};
+        unless $opts{'only-both'} || $opts{'keep-old-tables'};
     }
   }
 
@@ -163,7 +163,8 @@ sub diff_indices {
         my $changes = '';
         if ($indices1{$index}) {
           $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
-          $changes .= " # was $old_type ($indices1{$index})" unless $opts{'no-old-defs'};
+          $changes .= " # was $old_type ($indices1{$index})"
+            unless $opts{'no-old-defs'};
           $changes .= "\n";
         }
 
@@ -176,7 +177,8 @@ EOF
     else {
       debug(4, "      index `$index' removed\n");
       my $change = "ALTER TABLE $name1 DROP INDEX $index;";
-      $change .= " # was $old_type ($indices1{$index})" unless $opts{'no-old-defs'};
+      $change .= " # was $old_type ($indices1{$index})"
+        unless $opts{'no-old-defs'};
       $change .= "\n";
       push @changes, $change;
     }

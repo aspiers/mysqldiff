@@ -31,7 +31,7 @@ use MySQL::Utils qw(debug_level);
 
 my %opts = ();
 GetOptions(\%opts, "help|?", "debug|d:i",
-           "no-old-defs|n", "only-both|o", "table-re|t=s",
+           "keep-old-tables|k", "no-old-defs|n", "only-both|o", "table-re|t=s",
            "host|h=s",   "port|P=s", "user|u=s",   "password|p:s",
            "host1|h1=s", "port1|P1=s", "user1|u1=s", "password1|p1:s",
            "host2|h2=s", "port2|P2=s", "user2|u2=s", "password2|p2:s",
@@ -71,6 +71,7 @@ Options:
   -?,  --help             show this help
   -d,  --debug[=N]        enable debugging [level N, default 1]
   -o,  --only-both        only output changes for tables in both databases
+  -k,  --keep-old-tables  don't output DROP TABLE commands
   -n,  --no-old-defs      suppress comments describing old definitions
   -t,  --table-re=REGEXP  restrict comparisons to tables matching REGEXP
   -i,  --tolerant         ignore DEFAULT and formatting changes
