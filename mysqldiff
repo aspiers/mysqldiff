@@ -57,6 +57,7 @@ for my $num (0, 1) {
   $db[$num] = $new_db;
 }
 
+$| = 1;
 my $diffs = diff_dbs(\%opts, @db);
 print $diffs;
 apply($diffs) if $opts{apply};
@@ -118,12 +119,13 @@ sub apply {
   my $reply = <STDIN>;
   return unless $reply =~ /^y(es)?$/i;
 
+  print "Applying changes ... ";
   my $args = $db[0]->auth_args;
   my $pipe = "mysql$args $db0";
   open(PATCH, "|$pipe")
     or die "Couldn't open pipe to '$pipe': $!\n";
   print PATCH $diffs;
   close(PATCH) or die "Couldn't close pipe: $!\n";
-  print "Changes applied.\n";
+  print "done.\n";
 }
 
