@@ -26,8 +26,10 @@ See INSTALL.
 Documentation
 -------------
 
-POD-format documentation is included in the modules.  POD is readable
-with the 'perldoc' utility.
+See: http://adamspiers.org/computing/mysqldiff/
+
+At some stage I'll get round to including proper POD-format documentation.
+(Patches welcome ;-)
 
 Support
 -------
@@ -42,9 +44,9 @@ The latest version of MySQL::Diff is available from
 
   http://adamspiers.org/computing/mysqldiff/
 
-or (a possibly slightly older version) from the Comprehensive Perl
-Archive Network (CPAN).  Visit <http://www.perl.com/CPAN> to find a
-CPAN site near you.
+and eventually (a possibly slightly older version) from the
+Comprehensive Perl Archive Network (CPAN).  Visit
+<http://www.perl.com/CPAN> to find a CPAN site near you.
 
 Copyright
 ---------
