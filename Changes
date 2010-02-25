@@ -1,0 +1,14 @@
+# Changes log for Test::CPAN::Meta
+
+0.34    current
+        - changes by Barbie
+        - repackaged distribution with additional package files.
+        - restructured modules to use namespace MySQL::Diff::*
+        - restructured modules to use better OO style inferface.
+        - Utils.pm now only contains debug handling.
+        - added support for more recent MySQL dumps.
+        - added more documentation.
+        - added more tests.
+
+0.33    00/00/0000
+        - see Changelog for previous changes.

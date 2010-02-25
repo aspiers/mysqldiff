@@ -8,7 +8,9 @@ Module::Build->new(
   module_name   => 'MySQL::Diff',
   license       => 'perl',
   requires      => {
-    Class::MakeMethods::Template => 0,
+    Carp            => 0,
+    File::Slurp     => 0,
+    IO::File        => 0,
   },
   script_files  => [ 'mysqldiff' ],
 )->create_build_script;

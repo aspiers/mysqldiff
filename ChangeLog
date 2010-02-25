@@ -1,0 +1,292 @@
+2003-05-08  adams  <adams@yoda>
+
+	* README: document bugs
+
+	* Diff.pm, Makefile.PL, README, Utils.pm:
+	- 0.33
+	- remove Perl 5.6 requirement (thanks to Tatsuhiko Miyagawa
+	  for the suggestion)
+
+	* t/all.t, test.pl, MANIFEST: renamed test.pl to t/all.t to use
+	Test::Harness
+
+	* INSTALL: Make stuff more obvious
+
+	* test.pl: don't hang when mysqld up
+
+	* test.pl: more obvious on failure
+
+	* README: Class::MakeMethods
+
+2002-09-10  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* MANIFEST: mysqldiff.pl -> mysqldiff
+
+	* Diff.pm: version 0.32
+
+	* Diff.pm, Table.pm, test.pl:
+	Fix bug with INDEX <-> UNIQUE, spotted by John Smith.  Thanks John!
+	Added regression tests.
+
+2002-09-10  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Diff.pm: version 0.32
+
+	* Diff.pm, Table.pm, test.pl:
+	Fix bug with INDEX <-> UNIQUE, spotted by John Smith.  Thanks John!
+	Added regression tests.
+
+2002-09-08  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Table.pm:
+	fix most tests with MySQL 4
+
+2002-07-24  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Diff.pm: version 0.31
+
+	* Database.pm, Diff.pm, test.pl:
+	- add almost complete set of tests
+	- fix obscure bugs relating to changing of keys on auto_increment rows
+
+2002-06-20  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Diff.pm: version 0.30
+
+	* README:
+	update my email
+
+	* MANIFEST:
+	did a 'make manifest'
+
+	* Database.pm:
+	allow postgres-style '-- foo' comments
+
+2002-06-09  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* README:
+	Requires 5.6.0 now.  Thanks to scottb (at) incursio.com for pointing
+	this out.
+
+2002-05-24  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* mysqldiff: add -B
+
+2002-04-02  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Makefile.PL:
+	require Perl 5.6
+
+2002-03-11  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* mysqldiff:
+	slightly nicer output
+
+	* mysqldiff, Database.pm:
+	check we're applying changes to a db
+
+2002-02-27  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Utils.pm:
+	stop directories being treated as files containing SQL definitions
+
+2002-02-20  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* mysqldiff:
+	disastrous typo
+
+	* mysqldiff, Database.pm, Diff.pm, Utils.pm:
+	version 0.29:
+	  - refactoring
+	  - new -A (--apply) option
+	  - safety check for "use", "drop database" and "create database" commands
+	    in file being canonicalised (thanks to Tripp Lilley for the idea)
+
+2002-02-19  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Diff.pm: 0.28
+
+	* Diff.pm, mysqldiff:
+	add -k option
+
+2002-02-14  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Table.pm:
+	still learning MakeMethods *sigh*
+
+	* Diff.pm: debugging
+
+2002-02-13  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Diff.pm, Makefile.PL, Table.pm:
+	- use Class::MakeMethods
+	- don't break on fulltext (doesn't diff it yet though)
+
+2002-01-09  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Diff.pm:
+	didn't quite do the bugfix right, thanks AGAIN Warwick!
+
+2002-01-08  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Table.pm:
+	support KEY foo(bar) format with missing space
+	(thanks again to Warwick Smith)
+
+	* Table.pm:
+	fix problem with older MySQLs which don't include TYPE=MyISAM in dump
+	(thanks again to Warwick Smith)
+
+	* Table.pm:
+	no need for brackets around primary key
+
+	* Diff.pm:
+	no need for brackets around primary key (thanks to Warwick Smith)
+
+2001-11-12  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* mysqldiff, Utils.pm:
+	patch from Geoffrey Talvola <gtalvola@mediaone.net> to
+	allow specifying alternate ports.
+
+2001-11-07  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Utils.pm:
+	missed a bit of the socket patch, thanks again Jody!
+
+	* README:
+	slight inaccuracies
+
+	* Makefile.PL:
+	omit postamble hack for other people
+
+	* Diff.pm, mysqldiff, Utils.pm:
+	- bump to 0.27
+	- move parse_arg and available_dbs to MySQL::Utils
+	- incorporate patch from Jody Biggs <jody@codegrok.com>
+	  to support sockets
+
+	* .cvsignore:
+	*** empty log message ***
+
+	* Database.pm:
+	bug fix for empty databases from Noam Solomon <noam@socketnet.com>
+
+	* Makefile.PL:
+	best to stick to CPAN conventions
+
+	* Makefile.PL:
+	ChangeLog hack
+
+	* .cvsignore, INSTALL, Makefile.PL, MANIFEST, README, test.pl:
+	mysqldiff packaging
+
+	* Diff.pm:
+	bump up version for new release
+
+	* Database.pm, Diff.pm, Table.pm, Utils.pm:
+	- add missing `use strict' and fix compile errors - doh!
+	- support table options
+
+2001-10-20  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Diff.pm:
+	fix primary key diffing
+
+	* Diff.pm: doh!
+
+	* mysqldiff, Diff.pm:
+	move MySQLdiff -> MySQL::Diff
+
+2001-09-18  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Table.pm:
+	bugfix from Paul Mineiro (pmineiro@codegrok.com)
+
+2001-02-19  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* mysqldiff:
+	check that parse_arg succeeded
+
+2001-02-14  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* Database.pm, Table.pm, Utils.pm, mysqldiff:
+	split into pieces so we can reuse it in other utilities
+
+2000-11-02  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* mysqldiff:
+	- version 0.25
+	- rename 'hack' option to avoid clash
+	- fix --host0 bug
+
+2000-10-16  damian  <damian@yoda>
+
+	* mysqldiff:
+	- hack to be more tolerant
+
+2000-09-04  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* mysqldiff:
+	avoid warning
+
+2000-08-31  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* mysqldiff: 0.24
+
+2000-08-31  damian  <damian@yoda>
+
+	* mysqldiff:
+	- change column needs the name of old and new field
+
+2000-08-24  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* mysqldiff:
+	- add -t|--table-re option for only comparing tables which match a regexp
+	- 0.23
+
+	* mysqldiff:
+	- 0.22
+	- added -o option
+
+	* mysqldiff:
+	optional comments describing old defs
+
+2000-08-23  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* mysqldiff:
+	double-doh!  there was a reason that close() was late ...
+
+	* mysqldiff:
+	doh!  I was closing the filehandle too late, so mysqldump didn't get everything
+
+	* mysqldiff:
+	- add debugging
+	- handle UNIQUE indices
+
+	* mysqldiff:
+	fix bug with db:arg parsing
+
+	* mysqldiff:
+	keep Christof happy ;-)
+
+	* mysqldiff:
+	- fix broken usage text
+	- prepare for public release (free bug-testers *grin*)
+
+	* mysqldiff:
+	- added $VERSION
+	- $changes counter is now @changes
+	- outputs banner if @changes non-empty
+	- now compares indices
+
+2000-08-22  Adam Spiers  <mysqldiff@adamspiers.org>
+
+	* mysqldiff:
+	temp db names start with test_
+
+	* mysqldiff:
+	- first draft
+	- doesn't compare KEYs yet
+	- authentication code completely untested
+
