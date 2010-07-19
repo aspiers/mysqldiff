@@ -1,15 +1,23 @@
-#!/usr/bin/perl -w
-
-require 5.005;
-
+use strict;
 use Module::Build;
+#created by eumm-migrate.pl
 
-Module::Build->new(
-  module_name   => 'MySQL::Diff',
-  license       => 'perl',
-  requires      => {
-    Class::MakeMethods::Template => 0,
+my $build = Module::Build->new(
+  'script_files' => [
+    'mysqldiff'
+  ],
+  'module_name' => 'MySQL::Diff',
+  'requires' => {
+    'perl' => '5.005003',
+    'Class::MakeMethods::Template' => 0
   },
-  script_files  => [ 'mysqldiff' ],
-)->create_build_script;
+  'meta_merge' => {
+    'resources' => {
+      'repository' => 'http://github.com/aspiers/mysqldiff'
+    }
+  },
+  'license' => 'perl',
+  'dist_version_from' => 'lib/MySQL/Diff.pm'
+);
 
+$build->create_build_script();
