@@ -115,7 +115,7 @@ sub available_dbs {
     my $fh = IO::File->new("mysqlshow$args |") or die "Couldn't execute 'mysqlshow$args': $!\n";
     my @dbs;
     while (<$fh>) {
-        next unless /^\| (\w+)/;
+        next unless /^\| ([\w-]+)/;
         push @dbs, $1;
     }
     $fh->close() or die "mysqlshow$args failed: $!";
@@ -136,7 +136,7 @@ sub _canonicalise_file {
     # FIXME: option to avoid create-and-dump bit
     # create a temporary database using defs from file ...
     # hopefully the temp db is unique!
-    my $temp_db = sprintf "test_mysqldiff_temp_%d_%d_%d", time(), $$, rand();
+    my $temp_db = sprintf "test_mysqldiff-temp-%d_%d_%d", time(), $$, rand();
     debug(3,"creating temporary database $temp_db");
   
     my $defs = read_file($file);
@@ -145,7 +145,7 @@ sub _canonicalise_file {
   
     my $args = $self->{_source}{auth};
     my $fh = IO::File->new("| mysql $args") or die "Couldn't execute 'mysql$args': $!\n";
-    print $fh "\nCREATE DATABASE $temp_db;\nUSE $temp_db;\n";
+    print $fh "\nCREATE DATABASE \`$temp_db\`;\nUSE \`$temp_db\`;\n";
     print $fh $defs;
     $fh->close;
 
@@ -155,7 +155,7 @@ sub _canonicalise_file {
 
     debug(3,"dropping temporary database $temp_db");
     $fh = IO::File->new("| mysql $args") or die "Couldn't execute 'mysql$args': $!\n";
-    print $fh "DROP DATABASE $temp_db;\n";
+    print $fh "DROP DATABASE \`$temp_db\`;\n";
     $fh->close;
 }
 
