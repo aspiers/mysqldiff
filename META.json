@@ -1,0 +1,59 @@
+{
+   "abstract" : "Generates a database upgrade instruction set",
+   "author" : [
+      "Adam Spiers <adam@spiers.net>"
+   ],
+   "dynamic_config" : 1,
+   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.112150",
+   "license" : [
+      "perl_5"
+   ],
+   "meta-spec" : {
+      "url" : "http://search.cpan.org/perldoc?CPAN::Meta::Spec",
+      "version" : "2"
+   },
+   "name" : "MySQL-Diff",
+   "prereqs" : {
+      "configure" : {
+         "requires" : {
+            "Module::Build" : "0.38"
+         }
+      },
+      "runtime" : {
+         "requires" : {
+            "Carp" : 0,
+            "File::Slurp" : 0,
+            "IO::File" : 0,
+            "perl" : "5.005003"
+         }
+      }
+   },
+   "provides" : {
+      "MySQL::Diff" : {
+         "file" : "lib/MySQL/Diff.pm",
+         "version" : "0.34"
+      },
+      "MySQL::Diff::Database" : {
+         "file" : "lib/MySQL/Diff/Database.pm",
+         "version" : "0.34"
+      },
+      "MySQL::Diff::Table" : {
+         "file" : "lib/MySQL/Diff/Table.pm",
+         "version" : "0.34"
+      },
+      "MySQL::Diff::Utils" : {
+         "file" : "lib/MySQL/Diff/Utils.pm",
+         "version" : "0.34"
+      }
+   },
+   "release_status" : "stable",
+   "resources" : {
+      "license" : [
+         "http://dev.perl.org/licenses/"
+      ],
+      "repository" : {
+         "url" : "http://github.com/aspiers/mysqldiff"
+      }
+   },
+   "version" : "0.34"
+}

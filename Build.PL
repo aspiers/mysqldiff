@@ -21,7 +21,7 @@ my $build = Module::Build->new(
     }
   },
   'license' => 'perl',
-  'dist_version_from' => 'lib/MySQL/Diff.pm'
+  'all_from' => 'lib/MySQL/Diff.pm'
 );
 
 $build->create_build_script();

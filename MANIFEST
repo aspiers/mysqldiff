@@ -17,3 +17,4 @@ t/90podtest.t
 t/91podcover.t
 t/94metatest.t
 t/all.t
+META.json

@@ -1,23 +1,36 @@
---- #YAML:1.0
-name:               MySQL-Diff
-version:            0.34
-abstract:           ~
-author:  []
-license:            unknown
-distribution_type:  module
+---
+abstract: 'Generates a database upgrade instruction set'
+author:
+  - 'Adam Spiers <adam@spiers.net>'
+build_requires: {}
 configure_requires:
-    ExtUtils::MakeMaker:  0
-build_requires:
-    ExtUtils::MakeMaker:  0
-requires:
-    Carp:         0
-    File::Slurp:  0
-    IO::File:     0
-no_index:
-    directory:
-        - t
-        - inc
-generated_by:       ExtUtils::MakeMaker version 6.54
+  Module::Build: 0.38
+dynamic_config: 1
+generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.112150'
+license: perl
 meta-spec:
-    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
-    version:  1.4
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: MySQL-Diff
+provides:
+  MySQL::Diff:
+    file: lib/MySQL/Diff.pm
+    version: 0.34
+  MySQL::Diff::Database:
+    file: lib/MySQL/Diff/Database.pm
+    version: 0.34
+  MySQL::Diff::Table:
+    file: lib/MySQL/Diff/Table.pm
+    version: 0.34
+  MySQL::Diff::Utils:
+    file: lib/MySQL/Diff/Utils.pm
+    version: 0.34
+requires:
+  Carp: 0
+  File::Slurp: 0
+  IO::File: 0
+  perl: 5.005003
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: http://github.com/aspiers/mysqldiff
+version: 0.34
