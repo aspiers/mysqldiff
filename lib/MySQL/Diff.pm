@@ -24,7 +24,7 @@ use warnings;
 use strict;
 use vars qw($VERSION);
 
-$VERSION = '0.34';
+$VERSION = '0.40';
 
 # ------------------------------------------------------------------------------
 # Libraries
