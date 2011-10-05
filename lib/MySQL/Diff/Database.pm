@@ -39,8 +39,20 @@ use IO::File;
 use MySQL::Diff::Utils qw(debug);
 use MySQL::Diff::Table;
 
-# ------------------------------------------------------------------------------
-# Public Methods
+=head1 METHODS
+
+=head2 Constructor
+
+=over 4
+
+=item new( %options )
+
+Instantiate the objects, providing the command line options for database
+access and process requirements.
+
+=back
+
+=cut
 
 sub new {
     my $class = shift;
@@ -67,11 +79,28 @@ sub new {
     return $self;
 }
 
+=head2 Public Methods
+
+=over 4
+
+=item * source_type()
+
+Returns 'file' if the data source is a text file, and 'db' if connected
+directly to a database.
+
+=cut
+
 sub source_type {
     my $self = shift;
     return 'file' if $self->{_source}{file};
     return 'db'   if $self->{_source}{db};
 }
+
+=item * summary()
+
+Provides a summary of the database.
+
+=cut
 
 sub summary {
     my $self = shift;
@@ -91,20 +120,54 @@ sub summary {
     }
 }
 
+=item * name()
+
+Returns the name of the database.
+
+=cut
+
 sub name {
     my $self = shift;
     return $self->{_source}{file} || $self->{_source}{db};
 }
+
+=item * tables()
+
+Returns a list of tables for the current database.
+
+=cut
 
 sub tables {
     my $self = shift;
     return @{$self->{_tables}};
 }
 
+=item * table_by_name( $name )
+
+Returns the table definition (see L<MySQL::Diff::Table>) for the given table.
+
+=cut
+
 sub table_by_name {
     my ($self,$name) = @_;
     return $self->{_by_name}{$name};
 }
+
+=back
+
+=head1 FUNCTIONS
+
+=head2 Public Functions
+
+=over 4
+
+=item * available_dbs()
+
+Returns a list of the available databases.
+
+Note that is used as a function call, not a method call.
+
+=cut
 
 sub available_dbs {
     my %auth = @_;
@@ -123,6 +186,9 @@ sub available_dbs {
     return map { $_ => 1 } @dbs;
 }
 
+=back
+
+=cut
 
 # ------------------------------------------------------------------------------
 # Private Methods
@@ -218,60 +284,6 @@ sub _auth_args_string {
 1;
 
 __END__
-
-=head1 METHODS
-
-=head2 Constructor
-
-=over 4
-
-=item new( %options )
-
-Instantiate the objects, providing the command line options for database
-access and process requirements.
-
-=back
-
-=head2 Public Methods
-
-=over 4
-
-=item * source_type()
-
-Returns 'file' if the data source is a text file, and 'db' if connected 
-directly to a database.
-
-=item * summary()
-
-Provides a summary of the database.
-
-=item * name()
-
-Returns the name of the database;
-
-=item * tables()
-
-Returns a list of tables for the current database.
-
-=item * table_by_name( $name )
-
-Returns the table definition (see L<MySQL::Diff::Table>) for the given table.
-
-=back
-
-=head1 FUNCTIONS
-
-=head2 Public Functions
-
-=over 4
-
-=item * available_dbs()
-
-Returns a list of the available databases.
-
-Note that is used as a function call, not a method call.
-
-=back
 
 =head1 AUTHOR
 

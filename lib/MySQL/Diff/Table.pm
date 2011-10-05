@@ -52,8 +52,6 @@ use MySQL::Diff::Utils qw(debug);
 Instantiate the objects, providing the command line options for database
 access and process requirements.
 
-=back
-
 =cut
 
 sub new {
@@ -69,6 +67,8 @@ sub new {
     $self->_parse;
     return $self;
 }
+
+=back
 
 =head2 Public Methods
 
