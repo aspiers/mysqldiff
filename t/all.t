@@ -434,7 +434,7 @@ plan skip_all => $BAIL  if($BAIL);
 my $total = scalar(keys %tests) * 5;
 plan tests => $total;
 
-#use Data::Dumper;
+use Data::Dumper;
 
 my @tests = (keys %tests); #keys %tests
 
@@ -443,11 +443,11 @@ my @tests = (keys %tests); #keys %tests
     unlink $debug{debug_file};
 
     for my $test (@tests) {
-      #diag( "Testing $test\n" );
+      note( "Testing $test\n" );
 
       my ($opts, $db1_defs, $db2_defs, $expected) = @{$tests{$test}};
 
-      #diag("test=".Dumper($tests{$test}));
+      note("test=".Dumper($tests{$test}));
 
       my $diff = MySQL::Diff->new(%$opts, %debug);
       isa_ok($diff,'MySQL::Diff');
@@ -455,13 +455,13 @@ my @tests = (keys %tests); #keys %tests
       my $db1 = get_db($db1_defs, 1);
       my $db2 = get_db($db2_defs, 2);
 
-      #my $d1 = $diff->register_db($db1, 1);
-      #my $d2 = $diff->register_db($db2, 2);
-      #diag("d1=".Dumper($d1));
-      #diag("d2=".Dumper($d2));
+      my $d1 = $diff->register_db($db1, 1);
+      my $d2 = $diff->register_db($db2, 2);
+      note("d1=" . Dumper($d1));
+      note("d2=" . Dumper($d2));
 
-      isa_ok($diff->register_db($db1, 1),'MySQL::Diff::Database');
-      isa_ok($diff->register_db($db2, 2),'MySQL::Diff::Database');
+      isa_ok($d1, 'MySQL::Diff::Database');
+      isa_ok($d2, 'MySQL::Diff::Database');
 
       my $diffs = $diff->diff();
       $diffs =~ s/^## mysqldiff [\d.]+/## mysqldiff <VERSION>/m;
@@ -481,8 +481,8 @@ my @tests = (keys %tests); #keys %tests
         $expected =~ s/$ENGINE_RE/ENGINE=$engine/g;
       }
 
-      #diag("diffs=".Dumper($diffs));
-      #diag("expected=".Dumper($expected));
+      note("diffs = "    . Dumper($diffs));
+      note("expected = " . Dumper($expected));
 
       is_deeply($diffs, $expected, ".. expected differences for $test");
 
@@ -497,7 +497,7 @@ my @tests = (keys %tests); #keys %tests
 sub get_db {
     my ($defs, $num) = @_;
 
-    #diag("defs=$defs");
+    note("defs=$defs");
 
     my $file = "tmp.db$num";
     open(TMP, ">$file") or die "open: $!";
