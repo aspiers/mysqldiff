@@ -19,7 +19,7 @@
 
 use strict;
 
-require 5.004;
+require 5.005003; #due to qr
 
 use Carp qw(:DEFAULT cluck);
 use FindBin qw($RealBin $Script);

@@ -296,3 +296,11 @@ sub diff_options {
 }
 
 1;
+
+=head1 COPYRIGHT
+
+(c) 2000, Adam Spiers <mysqldiff@adamspiers.org>, all rights reserved.
+This program is free software; you can redistribute it and/or modify
+it under the same terms as Perl itself.
+
+=cut
