@@ -1,15 +1,25 @@
 # Changes log for Test::CPAN::Meta
 
-0.34    current
+0.40    5th October 2011
+        - made --tolerant ignore COLLATE and AUTO_INCREMENT
+        - fixed 'Duplicate specification' options from Getopt::Long
+        - made CLI options case-sensitive
+        - fixed some coding style inconsistencies
+        - remove .cvsignore
         - merged changes by Barbie
-        - removed use of unmaintained Class::MakeMethods
-        - repackaged distribution with additional package files.
-        - restructured modules to use namespace MySQL::Diff::*
-        - restructured modules to use better OO style inferface.
-        - Utils.pm now only contains debug handling.
-        - added support for more recent MySQL dumps.
-        - added more documentation.
-        - added more tests.
+          - removed use of unmaintained Class::MakeMethods
+          - repackaged distribution with additional package files
+          - restructured modules to use namespace MySQL::Diff::*
+          - restructured modules to use better OO style inferface
+          - Utils.pm now only contains debug handling
+          - added support for more recent MySQL dumps
+          - added more documentation
+          - added more tests
+        - merged changes by Alexandr Ciornii
+          - depend on Perl 5.5.3
+          - remove lib/MySQL/.cvsignore
+          - fix .gitignore
+          - upgrade Makefile.PL and Build.PL
 
-0.33    5/10/2011
+0.33    8th May 2003
         - see ChangeLog.OLD for previous changes.
