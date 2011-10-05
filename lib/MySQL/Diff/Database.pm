@@ -105,7 +105,7 @@ sub available_dbs {
 # Private Methods
 
 sub _canonicalise_file {
-    my ($self,$file) = @_;
+    my ($self, $file) = @_;
 
     $self->{_source}{file} = $file;
     debug(2,"fetching table defs from file $file");
@@ -137,14 +137,14 @@ sub _canonicalise_file {
 }
 
 sub _read_db {
-    my ($self,$db) = @_;
+    my ($self, $db) = @_;
     $self->{_source}{db} = $db;
     debug(3, "fetching table defs from db $db");
     $self->_get_defs($db);
 }
 
 sub _get_defs {
-    my ($self,$db) = @_;
+    my ($self, $db) = @_;
 
     my $args = $self->{_source}{auth};
     my $fh = IO::File->new("mysqldump -d $args $db 2>&1 |")

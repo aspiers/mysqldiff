@@ -34,7 +34,7 @@ sub new {
 }
 
 sub register_db {
-    my ($self,$name,$inx) = @_;
+    my ($self, $name, $inx) = @_;
     return  unless($inx == 1 || $inx == 2);
 
     my $db = ref $name eq 'MySQL::Diff::Database' ? $name : $self->_load_database($name,$inx);
