@@ -1,5 +1,25 @@
 package MySQL::Diff;
 
+=head1 NAME
+
+MySQL::Diff - Generates a database upgrade instruction set
+
+=head1 SYNOPSIS
+
+  use MySQL::Diff;
+
+  my $md = MySQL::Diff->new( %options );
+  my $db1 = $md->register_db($ARGV[0], 1);
+  my $db2 = $md->register_db($ARGV[1], 2);
+  my $diffs = $md->diff();
+
+=head1 DESCRIPTION
+
+Generates the SQL instructions required to upgrade the first database to match
+the second.
+
+=cut
+
 use warnings;
 use strict;
 use vars qw($VERSION);
@@ -14,8 +34,20 @@ use MySQL::Diff::Utils qw(debug debug_level debug_file);
 
 use Data::Dumper;
 
-# ------------------------------------------------------------------------------
-# Public Methods
+=head1 METHODS
+
+=head2 Constructor
+
+=over 4
+
+=item new( %options )
+
+Instantiate the objects, providing the command line options for database
+access and process requirements.
+
+=back
+
+=cut
 
 sub new {
     my $class = shift;
@@ -33,24 +65,58 @@ sub new {
     return $self;
 }
 
+=head2 Public Methods
+
+Fuller documentation will appear here in time :)
+
+=over 4
+
+=item * register_db($name,$inx)
+
+Reference the database, and setup a connection. The name can be an already
+existing 'MySQL::Diff::Database' database object. The index can be '1' or '2',
+and refers both to the order of the diff, and to the host, port, username and
+password arguments that have been supplied.
+
+=cut
+
 sub register_db {
     my ($self, $name, $inx) = @_;
-    return  unless($inx == 1 || $inx == 2);
+    return unless $inx == 1 || $inx == 2;
 
     my $db = ref $name eq 'MySQL::Diff::Database' ? $name : $self->_load_database($name,$inx);
     $self->{databases}[$inx-1] = $db;
     return $db;
 }
 
+=item * db1()
+
+=item * db2()
+
+Return the first and second databases registered via C<register_db()>.
+
+=cut
+
+sub db1 { shift->{databases}->[0] }
+sub db2 { shift->{databases}->[1] }
+
+=item * diff()
+
+Performs the diff, returning a string containing the commands needed to change
+the schema of the first database into that of the second.
+
+=back
+
+=cut
+
 sub diff {
     my $self = shift;
-    my @db = @{$self->{databases}};
     my $table_re = $self->{opts}{'table-re'};
     my @changes;
 
     debug(1, "\ncomparing databases");
 
-    for my $table1 ($db[0]->tables()) {
+    for my $table1 ($self->db1->tables()) {
         my $name = $table1->name();
         debug(4, "table 1 $name = ".Dumper($table1));
         if ($table_re && $name !~ $table_re) {
@@ -58,7 +124,7 @@ sub diff {
             next;
         }
         debug(2,"looking at tables called '$name'");
-        if (my $table2 = $db[1]->table_by_name($name)) {
+        if (my $table2 = $self->db2->table_by_name($name)) {
             debug(3,"comparing tables called '$name'");
             push @changes, $self->_diff_tables($table1, $table2);
         } else {
@@ -68,14 +134,14 @@ sub diff {
         }
     }
 
-    for my $table2 ($db[1]->tables()) {
+    for my $table2 ($self->db2->tables()) {
         my $name = $table2->name();
         debug(4, "table 2 $name = ".Dumper($table2));
         if ($table_re && $name !~ $table_re) {
             debug(2,"table '$name' matched $self->{opts}{'table-re'}; ignoring");
             next;
         }
-        if (! $db[0]->table_by_name($name)) {
+        if (! $self->db1->table_by_name($name)) {
             debug(3,"table '$name' added");
             debug(4,"table '$name' added '".$table2->def()."'");
             push @changes, $table2->def() . "\n"
@@ -87,7 +153,7 @@ sub diff {
 
     my $out = '';
     if (@changes) {
-        $out .= $self->_diff_banner(@db);
+        $out .= $self->_diff_banner();
         $out .= join '', @changes;
     }
     return $out;
@@ -97,10 +163,10 @@ sub diff {
 # Private Methods
 
 sub _diff_banner {
-    my ($self, @db) = @_;
+    my ($self) = @_;
 
-    my $summary1 = $db[0]->summary();
-    my $summary2 = $db[1]->summary();
+    my $summary1 = $self->db1->summary();
+    my $summary2 = $self->db2->summary();
 
     my $opt_text =
         join ', ',
@@ -381,60 +447,9 @@ sub _debug_level {
 
 __END__
 
-=head1 NAME
-
-MySQL::Diff - Generates a database upgrade instruction set
-
-=head1 SYNOPSIS
-
-  use MySQL::Diff;
-
-  my $md = MySQL::Diff->new( %options );
-  my $db1 = $md->register_db($ARGV[0], 1);
-  my $db2 = $md->register_db($ARGV[1], 2);
-  my $diffs = $md->diff();
-
-=head1 DESCRIPTION
-
-Generates the SQL instructions required to upgrade the first database to match
-the second.
-
-=head1 METHODS
-
-=head2 Constructor
-
-=over 4
-
-=item new( %options )
-
-Instantiate the objects, providing the command line options for database
-access and process requirements.
-
-=back
-
-=head2 Public Methods
-
-Fuller documentation will appear here in time :)
-
-=over 4
-
-=item * register_db($name,$inx)
-
-Reference the database, and setup a connection. The name can be an already
-existing 'MySQL::Diff::Database' database object. The index can be '1' or '2',
-and refers both to the order of the diff, and to the host, port, username and
-password arguments that have been supplied.
-
-=item * diff()
-
-Performs the diff, returning a string containing the commands needed to change
-the schema of the first database into that of the second.
-
-=back
-
 =head1 AUTHOR
 
-Adam Spiers <adam@spiers.net>
+Adam Spiers <mysqldiff@adamspiers.org>
 
 =head1 COPYRIGHT AND LICENSE
 

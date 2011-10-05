@@ -52,7 +52,7 @@ for my $num (1,2) {
 $| = 1;
 my $diffs = $md->diff();
 print $diffs;
-apply($diffs) if $opts{apply} || $opts{'batch-apply'};
+apply($md, $diffs) if $opts{apply} || $opts{'batch-apply'};
 
 exit 0;
 
@@ -94,15 +94,15 @@ EOF
 }
 
 sub apply {
-  my ($diffs) = @_;
+  my ($md, $diffs) = @_;
 
   if (! $diffs) {
     print "No differences to apply.\n";
     return;
   }
 
-  my $db0 = $db[0]->name;
-  if ($db[0]->source_type ne 'db') {
+  my $db0 = $md->db1->name;
+  if ($md->db1->source_type ne 'db') {
     die "$db0 is not a database; cannot apply changes.\n";
   }
 
@@ -115,7 +115,7 @@ sub apply {
   }
 
   print "Applying changes ... ";
-  my $args = $db[0]->auth_args;
+  my $args = $md->db1->auth_args;
   my $pipe = "mysql$args $db0";
   my $fh = IO::File->new("|$pipe") or die "Couldn't open pipe to '$pipe': $!\n";
   print $fh $diffs;
