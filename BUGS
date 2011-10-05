@@ -1,21 +1,9 @@
-Reported by users and confirmed:
-================================
-
-  * Reference to non-existant routine maybe_index_auto_col().
-    Huh?!  [John Violette]
-
 Reported by users but unconfirmed:
 ==================================
 
   * If '-P1 3337' is one of the arguments it doesn't seem to get
     passed to the arguments for mysqldump (according to the
     debugging).  [Darrell Taylor]
-
-  * # mysqldiff --user=root --password=xxxx -B demo tables.sql
-    Duplicate specification "password|p:s" for option "p"
-    Duplicate specification "password1|p1:s" for option "p1"
-    Duplicate specification "password2|p2:s" for option "p2"
-    [John Smith]
 
 Others
 ======
