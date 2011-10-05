@@ -1,6 +1,7 @@
 # Changes log for Test::CPAN::Meta
 
 0.40    5th October 2011
+        - fix issue with hyphens in database names
         - made --tolerant ignore COLLATE and AUTO_INCREMENT
         - fixed 'Duplicate specification' options from Getopt::Long
         - made CLI options case-sensitive
