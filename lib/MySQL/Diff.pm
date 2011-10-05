@@ -217,6 +217,11 @@ sub _diff_fields {
             my $f1 = $fields1->{$field};
             my $f2 = $fields2->{$field};
             if ($fields2 && $f2) {
+                if ($self->{opts}{tolerant}) {
+                    for ($f1, $f2) {
+                        s/ COLLATE [\w_]+//gi;
+                    }
+                }
                 if ($f1 ne $f2) {
                     if (not $self->{opts}{tolerant} or 
                         (($f1 !~ m/$f2\(\d+,\d+\)/) and
@@ -388,7 +393,14 @@ sub _diff_options {
     return () unless $options1 || $options2;
 
     my @changes;
-  
+
+    if ($self->{opts}{tolerant}) {
+      for ($options1, $options2) {
+        s/ AUTO_INCREMENT=\d+//gi;
+        s/ COLLATE=[\w_]+//gi;
+      }
+    }
+
     if ($options1 ne $options2) {
         my $change = "ALTER TABLE $name $options2;";
         $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};

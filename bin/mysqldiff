@@ -71,7 +71,7 @@ Options:
   -k,  --keep-old-tables  don't output DROP TABLE commands
   -n,  --no-old-defs      suppress comments describing old definitions
   -t,  --table-re=REGEXP  restrict comparisons to tables matching REGEXP
-  -i,  --tolerant         ignore DEFAULT and formatting changes
+  -i,  --tolerant         ignore DEFAULT, AUTO_INCREMENT, COLLATE, and formatting changes
 
   -h,  --host=...         connect to host
   -P,  --port=...         use this port for connection
