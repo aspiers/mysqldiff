@@ -98,11 +98,11 @@ is equal to or lower than the current debug level.
 
 =head1 AUTHOR
 
-Adam Spiers <adam@spiers.net>
+Adam Spiers <mysqldiff@adamspiers.org>
 
 =head1 COPYRIGHT AND LICENSE
 
-  Copyright (C) 2000-2010 Adam Spiers
+  Copyright (c) 2000-2011 Adam Spiers
 
   This module is free software; you can redistribute it and/or
   modify it under the same terms as Perl itself.
