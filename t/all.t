@@ -6,6 +6,10 @@ use Test::More;
 use MySQL::Diff;
 use MySQL::Diff::Database;
 
+my $TEST_USER = 'test';
+my @VALID_ENGINES = qw(MyISAM InnoDB);
+my $VALID_ENGINES = join '|', @VALID_ENGINES;
+
 my %tables = (
   foo1 => '
 CREATE TABLE foo (
@@ -180,8 +184,8 @@ CREATE TABLE bar (
   utime datetime default NULL,
   name char(16) default NULL,
   age int(11) default NULL,
-  PRIMARY KEY  (id)
-) ENGINE=MyISAM DEFAULT CHARSET=latin1;
+  PRIMARY KEY (id)
+) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
 ',
   ],
@@ -464,6 +468,18 @@ my @tests = (keys %tests); #keys %tests
       $diffs =~ s/^## Run on .*/## Run on <DATE>/m;
       $diffs =~ s{/\*!40\d{3} .*? \*/;\n*}{}m;
       $diffs =~ s/ *$//gm;
+      for ($diffs, $expected) {
+        s/ default\b/ DEFAULT/gi;
+        s/PRIMARY KEY +\(/PRIMARY KEY (/g;
+        s/auto_increment/AUTO_INCREMENT/gi;
+      }
+
+      my $engine = 'InnoDB';
+      my $ENGINE_RE = qr/ENGINE=($VALID_ENGINES)/;
+      if ($diffs =~ $ENGINE_RE) {
+        $engine = $1;
+        $expected =~ s/$ENGINE_RE/ENGINE=$engine/g;
+      }
 
       #diag("diffs=".Dumper($diffs));
       #diag("expected=".Dumper($expected));
@@ -487,23 +503,52 @@ sub get_db {
     open(TMP, ">$file") or die "open: $!";
     print TMP $defs;
     close(TMP);
-    my $db = MySQL::Diff::Database->new(file => $file);
+    my $db = MySQL::Diff::Database->new(file => $file, auth => { user => $TEST_USER });
     unlink $file;
     return $db;
 }
 
 sub check_setup {
-    my $client_ok = (open(MYSQL, "mysql --help|") && join('', <MYSQL>) =~ /net_buffer_length/);
-    return "Cannot proceed with tests without a mysql client" unless $client_ok;
-    #ok($client_ok, "Test can run mysql client");
-
-    my $mysqldump_ok = (open(MYSQLDUMP, "mysqldump --help|") && join('', <MYSQLDUMP>) =~ /net_buffer_length/);
-    return "Cannot proceed with tests without mysqldump" unless $mysqldump_ok;
-    #ok($mysqldump_ok,"Test can run mysqldump utility");
-
-    my $connection_ok = (open(MYSQL, "echo status | mysql 2>&1 |") && join('', <MYSQL>) =~ /Connection id:/i);
-    return "Cannot proceed with tests without a valid connection" unless $connection_ok;
-    #ok($connection_ok, "Test can connect to mysql db");
-
+    my $failure_string = "Cannot proceed with tests without ";
+    _output_matches("mysql --help", qr/--password/) or
+        return $failure_string . 'a MySQL client';
+    _output_matches("mysqldump --help", qr/--password/) or
+        return $failure_string . 'mysqldump';
+    _output_matches("echo status | mysql -u $TEST_USER 2>&1", qr/Connection id:/) or
+        return $failure_string . 'a valid connection';
     return '';
+}
+
+sub _output_matches {
+    my ($cmd, $re) = @_;
+    my ($exit, $out) = _run($cmd);
+
+    my $issue;
+    if (defined $exit) {
+        if ($exit == 0) {
+            $issue = "Output from '$cmd' didn't match /$re/:\n$out" if $out !~ $re;
+        }
+        else {
+            $issue = "'$cmd' exited with status code $exit";
+        }
+    }
+    else {
+        $issue = "Failed to execute '$cmd'";
+    }
+
+    if ($issue) {
+        warn $issue, "\n";
+        return 0;
+    }
+    return 1;
+}
+
+sub _run {
+    my ($cmd) = @_;
+    unless (open(CMD, "$cmd|")) {
+        return (undef, "Failed to execute '$cmd': $!\n");
+    }
+    my $out = join '', <CMD>;
+    close(CMD);
+    return ($?, $out);
 }
