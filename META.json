@@ -1,7 +1,7 @@
 {
    "abstract" : "Generates a database upgrade instruction set",
    "author" : [
-      "Adam Spiers <adam@spiers.net>"
+      "Adam Spiers <mysqldiff@adamspiers.org>"
    ],
    "dynamic_config" : 1,
    "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.112150",

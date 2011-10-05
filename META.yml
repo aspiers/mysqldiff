@@ -1,7 +1,7 @@
 ---
 abstract: 'Generates a database upgrade instruction set'
 author:
-  - 'Adam Spiers <adam@spiers.net>'
+  - 'Adam Spiers <mysqldiff@adamspiers.org>'
 build_requires: {}
 configure_requires:
   Module::Build: 0.38
