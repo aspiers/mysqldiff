@@ -23,7 +23,7 @@ require 5.005003; #due to qr
 
 use FindBin qw($RealBin $Script);
 use lib $RealBin;
-use Getopt::Long;
+use Getopt::Long qw(:config no_ignore_case);
 use IO::File;
 
 use MySQL::Diff;
@@ -44,7 +44,7 @@ $opts{debug} ||= 0;
 
 my $md = MySQL::Diff->new(%opts);
 
-for my $num (1,2) {
+for my $num (1, 2) {
   my $new_db = $md->register_db($ARGV[$num-1], $num);
   usage($new_db) unless ref $new_db;
 }
