@@ -1,5 +1,28 @@
 package MySQL::Diff::Database;
 
+=head1 NAME
+
+MySQL::Diff::Database - Database Definition Class
+
+=head1 SYNOPSIS
+
+  use MySQL::Diff::Database;
+
+  my $db = MySQL::Diff::Database->new(%options);
+  my $source    = $db->source_type();
+  my $summary   = $db->summary();
+  my $name      = $db->name();
+  my @tables    = $db->tables();
+  my $table_def = $db->table_by_name($table);
+
+  my @dbs = MySQL::Diff::Database::available_dbs();
+
+=head1 DESCRIPTION
+
+Parses a database definition into component parts.
+
+=cut
+
 use warnings;
 use strict;
 use vars qw($VERSION);
@@ -195,27 +218,6 @@ sub _auth_args_string {
 1;
 
 __END__
-
-=head1 NAME
-
-MySQL::Diff::Database - Database Definition Class
-
-=head1 SYNOPSIS
-
-  use MySQL::Diff::Database;
-
-  my $db = MySQL::Diff::Database->new(%options);
-  my $source    = $db->source_type();
-  my $summary   = $db->summary();
-  my $name      = $db->name();
-  my @tables    = $db->tables();
-  my $table_def = $db->table_by_name($table);
-
-  my @dbs = MySQL::Diff::Database::available_dbs();
-
-=head1 DESCRIPTION
-
-Parses a database definition into component parts.
 
 =head1 METHODS
 

@@ -1,5 +1,34 @@
 package MySQL::Diff::Table;
 
+=head1 NAME
+
+MySQL::Diff::Table - Table Definition Class
+
+=head1 SYNOPSIS
+
+  use MySQL::Diff::Table
+
+  my $db = MySQL::Diff::Database->new(%options);
+  my $def           = $db->def();
+  my $name          = $db->name();
+  my $field         = $db->field();
+  my $fields        = $db->fields();                # %$fields
+  my $primary_key   = $db->primary_key();
+  my $indices       = $db->indices();               # %$indices
+  my $options       = $db->options();
+
+  my $isfield       = $db->isa_field($field);
+  my $isprimary     = $db->isa_primary($field);
+  my $isindex       = $db->isa_index($field);
+  my $isunique      = $db->is_unique($field);
+  my $isfulltext    = $db->is_fulltext($field);
+
+=head1 DESCRIPTION
+
+Parses a table definition into component parts.
+
+=cut
+
 use warnings;
 use strict;
 use vars qw($VERSION);
@@ -12,8 +41,20 @@ $VERSION = '0.40';
 use Carp qw(:DEFAULT);
 use MySQL::Diff::Utils qw(debug);
 
-# ------------------------------------------------------------------------------
-# Public Methods
+=head1 METHODS
+
+=head2 Constructor
+
+=over 4
+
+=item new( %options )
+
+Instantiate the objects, providing the command line options for database
+access and process requirements.
+
+=back
+
+=cut
 
 sub new {
     my $class = shift;
@@ -28,6 +69,65 @@ sub new {
     $self->_parse;
     return $self;
 }
+
+=head2 Public Methods
+
+Fuller documentation will appear here in time :)
+
+=over 4
+
+=item * def
+
+Returns the table definition as a string.
+
+=item * name
+
+Returns the name of the current table.
+
+=item * field
+
+Returns the current field definition of the given field.
+
+=item * fields
+
+Returns an array reference to a list of fields.
+
+=item * primary_key
+
+Returns a hash reference to fields used as primary key fields.
+
+=item * indices
+
+Returns a hash reference to fields used as index fields.
+
+=item * options
+
+Returns the additional options added to the table definition.
+
+=item * isa_field
+
+Returns 1 if given field is used in the current table definition, otherwise 
+returns 0.
+
+=item * isa_primary
+
+Returns 1 if given field is defined as a primary key, otherwise returns 0.
+
+=item * isa_index
+
+Returns 1 if given field is used as an index field, otherwise returns 0.
+
+=item * is_unique
+
+Returns 1 if given field is used as unique index field, otherwise returns 0.
+
+=item * is_fulltext
+
+Returns 1 if given field is used as fulltext index field, otherwise returns 0.
+
+=back
+
+=cut
 
 sub def             { my $self = shift; return $self->{def};            }
 sub name            { my $self = shift; return $self->{name};           }
@@ -131,103 +231,6 @@ sub _parse {
 1;
 
 __END__
-
-=head1 NAME
-
-MySQL::Diff::Table - Table Definition Class
-
-=head1 SYNOPSIS
-
-  use MySQL::Diff::Table
-
-  my $db = MySQL::Diff::Database->new(%options);
-  my $def           = $db->def();
-  my $name          = $db->name();
-  my $field         = $db->field();
-  my $fields        = $db->fields();                # %$fields
-  my $primary_key   = $db->primary_key();
-  my $indices       = $db->indices();               # %$indices
-  my $options       = $db->options();
-
-  my $isfield       = $db->isa_field($field);
-  my $isprimary     = $db->isa_primary($field);
-  my $isindex       = $db->isa_index($field);
-  my $isunique      = $db->is_unique($field);
-  my $isfulltext    = $db->is_fulltext($field);
-
-=head1 DESCRIPTION
-
-Parses a table definition into component parts.
-
-=head1 METHODS
-
-=head2 Constructor
-
-=over 4
-
-=item new( %options )
-
-Instantiate the objects, providing the command line options for database
-access and process requirements.
-
-=back
-
-=head2 Public Methods
-
-Fuller documentation will appear here in time :)
-
-=over 4
-
-=item * def
-
-Returns the table definition as a string.
-
-=item * name
-
-Returns the name of the current table.
-
-=item * field
-
-Returns the current field definition of the given field.
-
-=item * fields
-
-Returns an array reference to a list of fields.
-
-=item * primary_key
-
-Returns a hash reference to fields used as primary key fields.
-
-=item * indices
-
-Returns a hash reference to fields used as index fields.
-
-=item * options
-
-Returns the additional options added to the table definition.
-
-=item * isa_field
-
-Returns 1 if given field is used in the current table definition, otherwise 
-returns 0.
-
-=item * isa_primary
-
-Returns 1 if given field is defined as a primary key, otherwise returns 0.
-
-=item * isa_index
-
-Returns 1 if given field is used as an index field, otherwise returns 0.
-
-=item * is_unique
-
-Returns 1 if given field is used as unique index field, otherwise returns 0.
-
-=item * is_fulltext
-
-Returns 1 if given field is used as fulltext index field, otherwise returns 0.
-
-=back
 
 =head1 AUTHOR
 
