@@ -367,9 +367,9 @@ sub _check_for_auto_col {
     my @fields = split /\s*,\s*/, $fields;
 
     for my $field (@fields) {
-        next    if($table->field($field) !~ /auto_increment/i);
-        next    if($table->isa_index($field));
-        next    if($primary && $table->isa_primary($field));
+        next if($table->field($field) !~ /auto_increment/i);
+        next if($table->isa_index($field));
+        next if($primary && $table->isa_primary($field));
 
         return $field;
     }
