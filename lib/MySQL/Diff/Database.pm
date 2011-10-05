@@ -25,9 +25,8 @@ Parses a database definition into component parts.
 
 use warnings;
 use strict;
-use vars qw($VERSION);
 
-$VERSION = '0.40';
+our $VERSION = '0.40';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -38,6 +37,8 @@ use IO::File;
 
 use MySQL::Diff::Utils qw(debug);
 use MySQL::Diff::Table;
+
+# ------------------------------------------------------------------------------
 
 =head1 METHODS
 

@@ -22,9 +22,8 @@ the second.
 
 use warnings;
 use strict;
-use vars qw($VERSION);
 
-$VERSION = '0.40';
+our $VERSION = '0.40';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -33,6 +32,8 @@ use MySQL::Diff::Database;
 use MySQL::Diff::Utils qw(debug debug_level debug_file);
 
 use Data::Dumper;
+
+# ------------------------------------------------------------------------------
 
 =head1 METHODS
 

@@ -31,15 +31,16 @@ Parses a table definition into component parts.
 
 use warnings;
 use strict;
-use vars qw($VERSION);
 
-$VERSION = '0.40';
+our $VERSION = '0.40';
 
 # ------------------------------------------------------------------------------
 # Libraries
 
 use Carp qw(:DEFAULT);
 use MySQL::Diff::Utils qw(debug);
+
+# ------------------------------------------------------------------------------
 
 =head1 METHODS
 

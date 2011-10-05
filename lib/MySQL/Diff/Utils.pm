@@ -16,9 +16,8 @@ Currently contains the debug message handling routines.
 
 use warnings;
 use strict;
-use vars qw($VERSION);
 
-$VERSION = '0.40';
+our $VERSION = '0.40';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -29,8 +28,9 @@ use IO::File;
 # Export Components
 
 use base qw(Exporter);
-use vars qw(@EXPORT_OK);
-@EXPORT_OK = qw(debug_file debug_level debug);
+our @EXPORT_OK = qw(debug_file debug_level debug);
+
+# ------------------------------------------------------------------------------
 
 =head1 FUNCTIONS
 
