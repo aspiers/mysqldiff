@@ -1,79 +1,115 @@
 package MySQL::Diff;
 
+use warnings;
 use strict;
+use vars qw($VERSION);
 
-use base qw(Exporter);
-use vars qw(@EXPORT_OK $VERSION);
-@EXPORT_OK = qw(parse_arg diff_dbs);
+$VERSION = '0.34';
 
-use MySQL::Database;
-use MySQL::Utils qw(parse_arg debug);
+# ------------------------------------------------------------------------------
+# Libraries
 
-$VERSION = '0.33';
+use MySQL::Diff::Database;
+use MySQL::Diff::Utils qw(debug debug_level debug_file);
 
-sub diff_dbs {
-  my ($opts, @db) = @_;
+use Data::Dumper;
 
-  my %opts = %$opts;
-  my $table_re = $opts{'table-re'};
+# ------------------------------------------------------------------------------
+# Public Methods
 
-  debug(1, "comparing databases\n");
+sub new {
+    my $class = shift;
+    my %hash  = @_;
+    my $self = {};
+    bless $self, ref $class || $class;
 
-  my @changes = ();
+    $self->{opts} = \%hash;
 
-  foreach my $table1 ($db[0]->tables()) {
-    my $name = $table1->name();
-    if ($table_re && $name !~ $table_re) {
-      debug(2, "  table `$name' didn't match /$table_re/; ignoring\n");
-      next;
-    }
-    debug(2, "  looking at tables called `$name'\n");
-    if (my $table2 = $db[1]->table_by_name($name)) {
-      debug(4, "    comparing tables called `$name'\n");
-      push @changes, diff_tables($opts, $table1, $table2);
-    }
-    else {
-      debug(3, "    table `$name' dropped\n");
-      push @changes, "DROP TABLE $name;\n\n"
-        unless $opts{'only-both'} || $opts{'keep-old-tables'};
-    }
-  }
+    if($hash{debug})        { debug_level($hash{debug})     ; delete $hash{debug};      }
+    if($hash{debug_file})   { debug_file($hash{debug_file}) ; delete $hash{debug_file}; }
 
-  foreach my $table2 ($db[1]->tables()) {
-    my $name = $table2->name();
-    if ($table_re && $name !~ $table_re) {
-      debug(2, "  table `$name' matched $opts{'table-re'}; ignoring\n");
-      next;
-    }
-    if (! $db[0]->table_by_name($name)) {
-      debug(3, "  table `$name' added\n");
-      push @changes, $table2->def() . "\n"
-        unless $opts{'only-both'};
-    }
-  }
+    debug(3,"\nconstructing new MySQL::Diff");
 
-  my $out = '';
-  if (@changes) {
-    $out .= diff_banner(\%opts, @db);
-    $out .= join '', @changes;
-  }
-  return $out;
+    return $self;
 }
 
-sub diff_banner {
-  my ($opts, @db) = @_;
+sub register_db {
+    my ($self,$name,$inx) = @_;
+    return  unless($inx == 1 || $inx == 2);
 
-  my $summary1 = $db[0]->summary();
-  my $summary2 = $db[1]->summary();
+    my $db = ref $name eq 'MySQL::Diff::Database' ? $name : $self->_load_database($name,$inx);
+    $self->{databases}[$inx-1] = $db;
+    return $db;
+}
 
-  my $opt_text =
-    join ', ',
-         map { $opts->{$_} eq '1' ? $_ : "$_=$opts->{$_}" }
-             keys %$opts;
-  $opt_text = "## Options: $opt_text\n" if $opt_text;
+sub diff {
+    my $self = shift;
+    my @db = @{$self->{databases}};
+    my $table_re = $self->{opts}{'table-re'};
+    my @changes;
 
-  my $now = scalar localtime();
-  return <<EOF;
+    debug(1, "\ncomparing databases");
+
+    for my $table1 ($db[0]->tables()) {
+        my $name = $table1->name();
+        debug(4, "table 1 $name = ".Dumper($table1));
+        if ($table_re && $name !~ $table_re) {
+            debug(2,"table '$name' didn't match /$table_re/; ignoring");
+            next;
+        }
+        debug(2,"looking at tables called '$name'");
+        if (my $table2 = $db[1]->table_by_name($name)) {
+            debug(3,"comparing tables called '$name'");
+            push @changes, $self->_diff_tables($table1, $table2);
+        } else {
+            debug(3,"table '$name' dropped");
+            push @changes, "DROP TABLE $name;\n\n"
+                unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'};
+        }
+    }
+
+    for my $table2 ($db[1]->tables()) {
+        my $name = $table2->name();
+        debug(4, "table 2 $name = ".Dumper($table2));
+        if ($table_re && $name !~ $table_re) {
+            debug(2,"table '$name' matched $self->{opts}{'table-re'}; ignoring");
+            next;
+        }
+        if (! $db[0]->table_by_name($name)) {
+            debug(3,"table '$name' added");
+            debug(4,"table '$name' added '".$table2->def()."'");
+            push @changes, $table2->def() . "\n"
+                unless $self->{opts}{'only-both'};
+        }
+    }
+
+    debug(4,join '', @changes);
+
+    my $out = '';
+    if (@changes) {
+        $out .= $self->_diff_banner(@db);
+        $out .= join '', @changes;
+    }
+    return $out;
+}
+
+# ------------------------------------------------------------------------------
+# Private Methods
+
+sub _diff_banner {
+    my ($self, @db) = @_;
+
+    my $summary1 = $db[0]->summary();
+    my $summary2 = $db[1]->summary();
+
+    my $opt_text =
+        join ', ',
+            map { $self->{opts}{$_} eq '1' ? $_ : "$_=$self->{opts}{$_}" }
+                keys %{$self->{opts}};
+    $opt_text = "## Options: $opt_text\n" if $opt_text;
+
+    my $now = scalar localtime();
+    return <<EOF;
 ## mysqldiff $VERSION
 ## 
 ## Run on $now
@@ -84,167 +120,168 @@ $opt_text##
 EOF
 }
 
-sub diff_tables {
-  my @changes = (diff_fields(@_),
-                 diff_indices(@_),
-                 diff_primary_key(@_),
-                 diff_options(@_));
-  if (@changes) {
-    $changes[-1] =~ s/\n*$/\n/;
-  }
-  return @changes;
+sub _diff_tables {
+    my $self = shift;
+    my @changes = ( 
+        $self->_diff_fields(@_),
+        $self->_diff_indices(@_),
+        $self->_diff_primary_key(@_),
+        $self->_diff_options(@_)        
+    );
+
+    $changes[-1] =~ s/\n*$/\n/  if (@changes);
+    return @changes;
 }
 
-sub diff_fields {
-  my ($opts, $table1, $table2) = @_;
+sub _diff_fields {
+    my ($self, $table1, $table2) = @_;
 
-  my %opts = %$opts;
-  my $name1 = $table1->name();
+    my $name1 = $table1->name();
 
-  my %fields1 = $table1->fields;
-  my %fields2 = $table2->fields;
+    my $fields1 = $table1->fields;
+    my $fields2 = $table2->fields;
 
-  my @changes = ();
+    return () unless $fields1 || $fields2;
+
+    my @changes;
   
-  foreach my $field (keys %fields1) {
-    debug(5, "      table1 had field `$field'\n");
-    my $f1 = $fields1{$field};
-    if (my $f2 = $fields2{$field}) {
-      if ($f1 ne $f2) {
-        if (not $opts{tolerant} or (($f1 !~ m/$f2\(\d+,\d+\)/)         and
-                                    ($f1 ne "$f2 DEFAULT '' NOT NULL") and
-                                    ($f1 ne "$f2 NOT NULL")
-                                   ))
-        {
-          debug(4, "      field `$field' changed\n");
+    if($fields1) {
+        for my $field (keys %$fields1) {
+            debug(3,"table1 had field '$field'");
+            my $f1 = $fields1->{$field};
+            my $f2 = $fields2->{$field};
+            if ($fields2 && $f2) {
+                if ($f1 ne $f2) {
+                    if (not $self->{opts}{tolerant} or 
+                        (($f1 !~ m/$f2\(\d+,\d+\)/) and
+                         ($f1 ne "$f2 DEFAULT '' NOT NULL") and
+                         ($f1 ne "$f2 NOT NULL") ))
+                    {
+                        debug(3,"field '$field' changed");
 
-          my $change = "ALTER TABLE $name1 CHANGE COLUMN $field $field $f2;";
-          $change .= " # was $f1" unless $opts{'no-old-defs'};
-          $change .= "\n";
-          push @changes, $change;
+                        my $change = "ALTER TABLE $name1 CHANGE COLUMN $field $field $f2;";
+                        $change .= " # was $f1" unless $self->{opts}{'no-old-defs'};
+                        $change .= "\n";
+                        push @changes, $change;
+                    }
+                }
+            } else {
+                debug(3,"field '$field' removed");
+                my $change = "ALTER TABLE $name1 DROP COLUMN $field;";
+                $change .= " # was $fields1->{$field}" unless $self->{opts}{'no-old-defs'};
+                $change .= "\n";
+                push @changes, $change;
+            }
         }
-      }
     }
-    else {
-      debug(4, "      field `$field' removed\n");
-      my $change = "ALTER TABLE $name1 DROP COLUMN $field;";
-      $change .= " # was $fields1{$field}" unless $opts{'no-old-defs'};
-      $change .= "\n";
-      push @changes, $change;
-    }
-  }
 
-  foreach my $field (keys %fields2) {
-    if (! $fields1{$field}) {
-      debug(4, "      field `$field' added\n");
-      push @changes, "ALTER TABLE $name1 ADD COLUMN $field $fields2{$field};\n";
+    if($fields2) {
+        for my $field (keys %$fields2) {
+            unless($fields1 && $fields1->{$field}) {
+                debug(3,"field '$field' added");
+                push @changes, "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field};\n";
+            }
+        }
     }
-  }
 
-  return @changes;
+    return @changes;
 }
 
-sub diff_indices {
-  my ($opts, $table1, $table2) = @_;
+sub _diff_indices {
+    my ($self, $table1, $table2) = @_;
 
-  my %opts = %$opts;
-  my $name1 = $table1->name();
+    my $name1 = $table1->name();
 
-  my %indices1 = %{ $table1->indices() };
-  my %indices2 = %{ $table2->indices() };
+    my $indices1 = $table1->indices();
+    my $indices2 = $table2->indices();
 
-  my @changes = ();
+    return () unless $indices1 || $indices2;
 
-  foreach my $index ($table1->indices_keys) {
-    my $old_type = $table1->unique_index($index) ? 'UNIQUE' : 'INDEX';
+    my @changes;
 
-    if ($indices2{$index}) {
-      if (($indices1{$index} ne $indices2{$index}) or
-          ($table1->unique_index($index)
-             xor
-           $table2->unique_index($index)))
-      {
-        debug(4, "      index `$index' changed\n");
-        my $new_type = $table2->unique_index($index) ? 'UNIQUE' : 'INDEX';
+    if($indices1) {
+        for my $index (keys %$indices1) {
+            debug(3,"table1 had index '$index'");
+            my $old_type = $table1->is_unique($index) ? 'UNIQUE' : 
+                           $table1->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
 
-        my $changes = "ALTER TABLE $name1 DROP INDEX $index;";
-        $changes .= " # was $old_type ($indices1{$index})"
-          unless $opts{'no-old-defs'};
-        $changes .= "\n";
+            if ($indices2 && $indices2->{$index}) {
+                if( ($indices1->{$index} ne $indices2->{$index}) or
+                    ($table1->is_unique($index) xor $table2->is_unique($index)) or
+                    ($table1->is_fulltext($index) xor $table2->is_fulltext($index)) )
+                {
+                    debug(3,"index '$index' changed");
+                    my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 
+                                   $table2->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
 
-        $changes .= <<EOF;
-ALTER TABLE $name1 ADD $new_type $index ($indices2{$index});
-EOF
-        push @changes, $changes;
-      }
+                    my $changes = "ALTER TABLE $name1 DROP INDEX $index;";
+                    $changes .= " # was $old_type ($indices1->{$index})"
+                        unless $self->{opts}{'no-old-defs'};
+                    $changes .= "\nALTER TABLE $name1 ADD $new_type $index ($indices2->{$index});\n";
+                    push @changes, $changes;
+                }
+            } else {
+                debug(3,"index '$index' removed");
+                my $auto = _check_for_auto_col($table2, $indices1->{$index}, 1) || '';
+                my $changes = $auto ? _index_auto_col($table1, $indices1->{$index}) : '';
+                $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
+                $changes .= " # was $old_type ($indices1->{$index})"
+                    unless $self->{opts}{'no-old-defs'};
+                $changes .= "\n";
+                push @changes, $changes;
+            }
+        }
     }
-    else {
-      debug(4, "      index `$index' removed\n");
-      my $auto = check_for_auto_col($table1, $indices1{$index});
-      my $changes = $auto ? index_auto_col($table1, $indices1{$index}) : '';
-      $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
-      $changes .= " # was $old_type ($indices1{$index})"
-        unless $opts{'no-old-defs'};
-      $changes .= "\n";
-      push @changes, $changes;
-    }
-  }
 
-  foreach my $index (keys %indices2) {
-    if (! $indices1{$index}) {
-      debug(4, "      index `$index' added\n");
-      my $new_type = $table2->unique_index($index) ? 'UNIQUE' : 'INDEX';
-      push @changes,
-           "ALTER TABLE $name1 ADD $new_type $index ($indices2{$index});\n";
+    if($indices2) {
+        for my $index (keys %$indices2) {
+            next    if($indices1 && $indices1->{$index});
+            debug(3,"index '$index' added");
+            my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 'INDEX';
+            push @changes, "ALTER TABLE $name1 ADD $new_type $index ($indices2->{$index});\n";
+        }
     }
-  }
 
-  return @changes;
+    return @changes;
 }
 
-sub diff_primary_key {
-  my ($opts, $table1, $table2) = @_;
+sub _diff_primary_key {
+    my ($self, $table1, $table2) = @_;
 
-  my %opts = %$opts;
-  my $name1 = $table1->name();
+    my $name1 = $table1->name();
 
-  my $primary1 = $table1->primary_key();
-  my $primary2 = $table2->primary_key();
+    my $primary1 = $table1->primary_key();
+    my $primary2 = $table2->primary_key();
 
-  return () unless $primary1 || $primary2;
+    return () unless $primary1 || $primary2;
 
-  my @changes = ();
+    my @changes;
   
-  if ($primary1 && ! $primary2) {
-    debug(4, "      primary key `$primary1' dropped\n");
-    my $changes = maybe_index_auto_col($table1, $primary1);
-    $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
-    $changes .= " # was $primary1" unless $opts{'no-old-defs'};
-    return ( "$changes\n" );
-  }
+    if ($primary1 && ! $primary2) {
+        debug(3,"primary key '$primary1' dropped");
+        my $changes = _index_auto_col($table2, $primary1);
+        $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
+        $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
+        return ( "$changes\n" );
+    }
 
-  if (! $primary1 && $primary2) {
-    debug(4, "      primary key `$primary2' added\n");
-    return ("ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n");
-  }
+    if (! $primary1 && $primary2) {
+        debug(3,"primary key '$primary2' added");
+        return ("ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n");
+    }
 
-  if ($primary1 ne $primary2) {
-    debug(4, "      primary key changed\n");
-    my $auto = check_for_auto_col($table1, $primary1);
-    my $changes = $auto ? index_auto_col($table1, $auto) : '';
-    $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
-    $changes .= " # was $primary1" unless $opts{'no-old-defs'};
-    $changes .= <<EOF;
+    if ($primary1 ne $primary2) {
+        debug(3,"primary key changed");
+        my $auto = _check_for_auto_col($table2, $primary1) || '';
+        my $changes = $auto ? _index_auto_col($table2, $auto) : '';
+        $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
+        $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
+        $changes .= "\nALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
+        $changes .= "ALTER TABLE $name1 DROP INDEX $auto;\n"    if($auto);
+        push @changes, $changes;
+    }
 
-ALTER TABLE $name1 ADD PRIMARY KEY $primary2;
-EOF
-    $changes .= <<EOF;
-ALTER TABLE $name1 DROP INDEX $auto;
-EOF
-    push @changes, $changes;
-  }
-
-  return @changes;
+    return @changes;
 }
 
 # If we're about to drop a composite (multi-column) index, we need to
@@ -252,55 +289,158 @@ EOF
 # auto_increment; if so, we have to add an index for that
 # auto_increment column *before* dropping the composite index, since
 # auto_increment columns must always be indexed.
-sub check_for_auto_col {
-  my ($table, $fields) = @_;
+sub _check_for_auto_col {
+    my ($table, $fields, $primary) = @_;
 
-  $fields =~ s/^\s*\((.*)\)\s*$/$1/g; # strip brackets if any
-  my @fields = split /\s*,\s*/, $fields;
+    $fields =~ s/^\s*\((.*)\)\s*$/$1/g; # strip brackets if any
+    my @fields = split /\s*,\s*/, $fields;
 
-  my $changes = '';
-  foreach my $field (@fields) {
-    if ($table->fields($field) =~ /auto_increment/i && 
-        ! $table->indices($field)) {
-      return $field;
+    for my $field (@fields) {
+        next    if($table->field($field) !~ /auto_increment/i);
+        next    if($table->isa_index($field));
+        next    if($primary && $table->isa_primary($field));
+
+        return $field;
     }
-  }
 
-  return undef;
+    return;
 }
 
-sub index_auto_col {
-  my ($table, $field) = @_;
-  my $name = $table->name;
-  return "ALTER TABLE $name ADD INDEX ($field); # auto columns must always be indexed\n";
+sub _index_auto_col {
+    my ($table, $field) = @_;
+    my $name = $table->name;
+    return "ALTER TABLE $name ADD INDEX ($field); # auto columns must always be indexed\n";
 }
 
-sub diff_options {
-  my ($opts, $table1, $table2) = @_;
+sub _diff_options {
+    my ($self, $table1, $table2) = @_;
 
-  my %opts = %$opts;
-  my $options1 = $table1->options();
-  my $options2 = $table2->options();
-  my $name     = $table1->name();
+    my $name     = $table1->name();
+    my $options1 = $table1->options();
+    my $options2 = $table2->options();
 
-  my @changes = ();
+    return () unless $options1 || $options2;
+
+    my @changes;
   
-  if ($options1 ne $options2) {
-    my $change = "ALTER TABLE $name $options2;";
-    $change .= " # was " . ($options1 || 'blank') unless $opts{'no-old-defs'};
-    $change .= "\n";
-    push @changes, $change;
-  }
+    if ($options1 ne $options2) {
+        my $change = "ALTER TABLE $name $options2;";
+        $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
+        $change .= "\n";
+        push @changes, $change;
+    }
 
-  return @changes;
+    return @changes;
+}
+
+sub _load_database {
+    my ($self, $arg, $authnum) = @_;
+
+    debug(2, "parsing arg $authnum: '$arg'\n");
+
+    my %auth;
+    for my $auth (qw/dbh host port user password socket/) {
+        $auth{$auth} = $self->{opts}{"$auth$authnum"} || $self->{opts}{$auth};
+        delete $auth{$auth} unless $auth{$auth};
+    }
+
+    if ($arg =~ /^db:(.*)/) {
+        return MySQL::Diff::Database->new(db => $1, auth => \%auth);
+    }
+
+    if ($self->{opts}{"dbh"}              ||
+        $self->{opts}{"host$authnum"}     ||
+        $self->{opts}{"port$authnum"}     ||
+        $self->{opts}{"user$authnum"}     ||
+        $self->{opts}{"password$authnum"} ||
+        $self->{opts}{"socket$authnum"}) {
+        return MySQL::Diff::Database->new(db => $arg, auth => \%auth);
+    }
+
+    if (-f $arg) {
+        return MySQL::Diff::Database->new(file => $arg, auth => \%auth);
+    }
+
+    my %dbs = MySQL::Diff::Database::available_dbs(%auth);
+    debug(2, "  available databases: ", (join ', ', keys %dbs), "\n");
+
+    if ($dbs{$arg}) {
+        return MySQL::Diff::Database->new(db => $arg, auth => \%auth);
+    }
+
+    warn "'$arg' is not a valid file or database.\n";
+    return;
+}
+
+sub _debug_level {
+    my ($self,$level) = @_;
+    debug_level($level);
 }
 
 1;
 
-=head1 COPYRIGHT
+__END__
 
-(c) 2000, Adam Spiers <mysqldiff@adamspiers.org>, all rights reserved.
-This program is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+=head1 NAME
+
+MySQL::Diff - Generates a database upgrade instruction set
+
+=head1 SYNOPSIS
+
+  use MySQL::Diff;
+
+  my $md = MySQL::Diff->new( %options );
+  my $db1 = $md->register_db($ARGV[0], 1);
+  my $db2 = $md->register_db($ARGV[1], 2);
+  my $diffs = $md->diff();
+
+=head1 DESCRIPTION
+
+Generates the SQL instructions required to upgrade the first database to match
+the second.
+
+=head1 METHODS
+
+=head2 Constructor
+
+=over 4
+
+=item new( %options )
+
+Instantiate the objects, providing the command line options for database
+access and process requirements.
+
+=back
+
+=head2 Public Methods
+
+Fuller documentation will appear here in time :)
+
+=over 4
+
+=item * register_db($name,$inx)
+
+Reference the database, and setup a connection. The name can be an already
+existing 'MySQL::Diff::Database' database object. The index can be '1' or '2',
+and refers both to the order of the diff, and to the host, port, username and
+password arguments that have been supplied.
+
+=item * diff()
+
+Performs the diff, returning a string containing the commands needed to change
+the schema of the first database into that of the second.
+
+=back
+
+=head1 AUTHOR
+
+Adam Spiers <adam@spiers.net>
+
+=head1 COPYRIGHT AND LICENSE
+
+  Copyright (C) 2000-2010 Adam Spiers
+
+  This module is free software; you can redistribute it and/or
+  modify it under the same terms as Perl itself.
 
 =cut

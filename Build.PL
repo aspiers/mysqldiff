@@ -1,15 +1,19 @@
 use strict;
+use warnings;
+
 use Module::Build;
 #created by eumm-migrate.pl
 
 my $build = Module::Build->new(
   'script_files' => [
-    'mysqldiff'
+    'bin/mysqldiff'
   ],
   'module_name' => 'MySQL::Diff',
   'requires' => {
     'perl' => '5.005003',
-    'Class::MakeMethods::Template' => 0
+    'Carp'=> 0,
+    'File::Slurp' => 0,
+    'IO::File' => 0,
   },
   'meta_merge' => {
     'resources' => {

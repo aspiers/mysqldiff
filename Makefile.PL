@@ -2,11 +2,6 @@
 
 require 5.005003;
 
-warn <<EOF;
-ExtUtils::MakeMaker is old, crufty, evil and broken.
-Please use Build.PL instead (see the INSTALL file).
-EOF
-
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
 # the contents of the Makefile that is written.
@@ -21,12 +16,14 @@ WriteMakefile1(
     #BUILD_REQUIRES => {
     #},
 
-    'NAME'		=> 'MySQL::Diff',
+    'NAME'		    => 'MySQL::Diff',
     'VERSION_FROM'	=> 'lib/MySQL/Diff.pm', # finds $VERSION
     'PREREQ_PM'		=> {
-      'Class::MakeMethods::Template' => 0,
+      'Carp'            => 0,
+      'File::Slurp'     => 0,
+      'IO::File'        => 0,
     },
-    'EXE_FILES'         => [ 'mysqldiff' ],
+    'EXE_FILES'         => [ 'bin/mysqldiff' ],
 );
 
 sub WriteMakefile1 {  #Written by Alexandr Ciornii, version 0.21. Added by eumm-upgrade.
