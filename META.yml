@@ -4,7 +4,7 @@ author:
   - 'Adam Spiers <mysqldiff@adamspiers.org>'
 build_requires: {}
 configure_requires:
-  Module::Build: 0.38
+  Module::Build: 0
 dynamic_config: 1
 generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.112150'
 license: perl

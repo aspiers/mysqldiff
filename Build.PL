@@ -9,9 +9,12 @@ my $build = Module::Build->new(
     'bin/mysqldiff'
   ],
   'module_name' => 'MySQL::Diff',
+  'configure_requires' => {
+    'Module::Build' => 0,
+  },
   'requires' => {
     'perl' => '5.005003',
-    'Carp'=> 0,
+    'Carp' => 0,
     'File::Slurp' => 0,
     'IO::File' => 0,
   },
