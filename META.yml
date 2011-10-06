@@ -6,7 +6,7 @@ build_requires: {}
 configure_requires:
   Module::Build: 0
 dynamic_config: 1
-generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.112150'
+generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.112621'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -29,7 +29,7 @@ requires:
   Carp: 0
   File::Slurp: 0
   IO::File: 0
-  perl: 5.005003
+  perl: 5.006
 resources:
   license: http://dev.perl.org/licenses/
   repository: http://github.com/aspiers/mysqldiff

@@ -101,7 +101,7 @@ differences outputted in the form of MySQL statements.
 
 use strict;
 
-require 5.005003; # due to qr
+use 5.006; # due to 'our' and qr//
 
 use FindBin qw($RealBin $Script);
 use lib $RealBin;

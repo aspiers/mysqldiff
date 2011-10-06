@@ -4,7 +4,7 @@
       "Adam Spiers <mysqldiff@adamspiers.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.112150",
+   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.112621",
    "license" : [
       "perl_5"
    ],
@@ -24,7 +24,7 @@
             "Carp" : 0,
             "File::Slurp" : 0,
             "IO::File" : 0,
-            "perl" : "5.005003"
+            "perl" : "5.006"
          }
       }
    },
