@@ -26,7 +26,7 @@ Parses a database definition into component parts.
 use warnings;
 use strict;
 
-our $VERSION = '0.42';
+our $VERSION = '0.43';
 
 # ------------------------------------------------------------------------------
 # Libraries
