@@ -31,6 +31,8 @@ requires:
   IO::File: 0
   perl: 5.006
 resources:
+  bugtracker: http://rt.cpan.org/Public/Dist/Display.html?Name=MySQL-Diff
+  homepage: http://adamspiers.org/computing/mysqldiff/
   license: http://dev.perl.org/licenses/
   repository: http://github.com/aspiers/mysqldiff
 version: 0.42

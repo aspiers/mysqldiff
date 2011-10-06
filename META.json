@@ -48,6 +48,10 @@
    },
    "release_status" : "stable",
    "resources" : {
+      "bugtracker" : {
+         "web" : "http://rt.cpan.org/Public/Dist/Display.html?Name=MySQL-Diff"
+      },
+      "homepage" : "http://adamspiers.org/computing/mysqldiff/",
       "license" : [
          "http://dev.perl.org/licenses/"
       ],
