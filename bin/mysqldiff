@@ -1,25 +1,107 @@
 #!/usr/bin/perl -w
-#
-# mysqldiff
-#
-# Utility to compare table definitions in two MySQL databases,
-# and output a patch in the format of ALTER TABLE statements
-# which converts the first database structure into in the second.
-#
-# Developed as part of the http://www.guideguide.com/ project.
-# If you like hacking Perl in a cool environment, come and work for us!
-#
-# See http://adamspiers.org/computing/mysqldiff/ for the
-# latest version.
-#
-# Copyright (c) 2000-2011 Adam Spiers. All rights reserved. This
-# program is free software; you can redistribute it and/or modify it
-# under the same terms as Perl itself.
-#
+
+=head1 NAME
+
+mysqldiff - compare MySQL database schemas
+
+=head1 SYNOPSIS
+
+  mysqldiff [B<options>] B<database1> B<database2>
+
+  mysqldiff --help
+
+=head1 DESCRIPTION
+
+F<mysqldiff> is a Perl script front-end to the
+L<CPAN|http://www.perl.com/CPAN> module
+L<MySQL::Diff|http://search.cpan.org/search?module=MySQL::Diff> which
+compares the data structures (i.e. table definitions) of two
+L<MySQL|http://www.mysql.com/> databases, and returns the differences
+as a sequence of MySQL commands suitable for piping into F<mysql>
+which will transform the structure of the first database to be
+identical to that of the second (I<c.f.> F<diff> and F<patch>).
+
+Database structures can be compared whether they are files containing
+table definitions or existing databases, local or remote.
+
+B<N.B.> The program makes I<no> attempt to compare any of the data
+which may be stored in the databases.  It is purely for comparing the
+table definitions.  I have no plans to implement data comparison; it
+is a complex problem and I have no need of such functionality anyway.
+However there is another program
+L<coldiff|http://rossbeyer.net/software/mysql_coldiff/>
+which does this, and is based on an older program called
+F<datadiff> which seems to have vanished off the 'net.
+
+For PostgreSQL there are similar tools such as
+L<pgdiff|http://pgdiff.sourceforge.net/> and
+L<apgdiff|http://apgdiff.startnet.biz/>.
+
+=head1 EXAMPLES
+
+  # compare table definitions in two files
+  mysqldiff db1.mysql db2.mysql
+
+  # compare table definitions in a file 'db1.mysql' with a database 'db2'
+  mysqldiff db1.mysql db2
+
+  # interactively upgrade schema of database 'db1' to be like the
+  # schema described in the file 'db2.mysql'
+  mysqldiff -A db1 db2.mysql
+
+  # compare table definitions in two databases on a remote machine
+  mysqldiff --host=remote.host.com --user=myaccount db1 db2
+
+  # compare table definitions in a local database 'foo' with a
+  # database 'bar' on a remote machine, when a file foo already
+  # exists in the current directory
+  mysqldiff --host2=remote.host.com --password=secret db:foo bar
+
+=head1 OPTIONS
+
+=for comment FIXME - add option docs here
+
+More details to come; for now run C<mysqldiff --help>.
+
+=head1 INTERNALS
+
+For both of the database structures being compared, the following
+happens:
+
+=over 4
+
+=item
+
+If the argument is a valid filename, the file is used to create a
+temporary database which C<mysqldump -d> is run on to obtain the table
+definitions in canonicalised form.  The temporary database is then
+dropped.  (The temporary database is named
+C<test_mysqldiff_temp_something> because default MySQL permissions
+allow anyone to create databases beginning with the prefix C<test_>.)
+
+=item
+
+If the argument is a database, C<mysqldump -d> is run directly on it.
+
+=item
+
+Where authentication is required, the hostname, username, and password
+given by the corresponding options are used (type C<mysqldiff --help>
+for more information).
+
+=item
+
+Each set of table definitions is now parsed into tables, and fields
+and index keys within those tables; these are compared, and the
+differences outputted in the form of MySQL statements.
+
+=back
+
+=cut
 
 use strict;
 
-require 5.005003; #due to qr
+require 5.005003; # due to qr
 
 use FindBin qw($RealBin $Script);
 use lib $RealBin;
@@ -122,3 +204,22 @@ sub apply {
   print "done.\n";
 }
 
+=head1 BUGS, DEVELOPMENT, CONTRIBUTING
+
+See L<http://software.adamspiers.org/wiki/mysqldiff>.
+
+=head1 COPYRIGHT
+
+Copyright (c) 2000-2011 Adam Spiers. All rights reserved. This
+program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
+
+=head1 SEE ALSO
+
+L<mysql>, L<mysqldump>, L<mysqlshow>
+
+=head1 AUTHOR
+
+Adam Spiers <mysqldiff@adamspiers.org>
+
+=cut
