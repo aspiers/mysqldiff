@@ -208,7 +208,7 @@ sub apply {
 
 See L<http://software.adamspiers.org/wiki/mysqldiff>.
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
 Copyright (c) 2000-2011 Adam Spiers. All rights reserved. This
 program is free software; you can redistribute it and/or modify it
@@ -216,6 +216,7 @@ under the same terms as Perl itself.
 
 =head1 SEE ALSO
 
+L<MySQL::Diff>, L<MySQL::Diff::Database>, L<MySQL::Diff::Table>, L<MySQL::Diff::Utils>,
 L<mysql>, L<mysqldump>, L<mysqlshow>
 
 =head1 AUTHOR
