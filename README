@@ -4,7 +4,7 @@ README for MySQL-Diff
                              ============
 
 MySQL-Diff is suite of Perl modules and accompanying CLI script for
-comparing the table structure of two MySQL databases.
+comparing the schema (table structures) of two MySQL databases.
 
 Prerequisites
 -------------

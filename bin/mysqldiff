@@ -15,7 +15,7 @@ mysqldiff - compare MySQL database schemas
 F<mysqldiff> is a Perl script front-end to the
 L<CPAN|http://www.perl.com/CPAN> module
 L<MySQL::Diff|http://search.cpan.org/search?module=MySQL::Diff> which
-compares the data structures (i.e. table definitions) of two
+compares the data structures (i.e. schema / table definitions) of two
 L<MySQL|http://www.mysql.com/> databases, and returns the differences
 as a sequence of MySQL commands suitable for piping into F<mysql>
 which will transform the structure of the first database to be
