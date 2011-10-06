@@ -1,5 +1,9 @@
 # Changes log for Test::CPAN::Meta
 
+0.42    6th October 2011
+        - depend on Perl 5.6
+        - improve docs and CPAN meta-data
+
 0.41    5th October 2011
         - tidy up POD
 

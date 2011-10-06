@@ -31,19 +31,19 @@
    "provides" : {
       "MySQL::Diff" : {
          "file" : "lib/MySQL/Diff.pm",
-         "version" : "0.41"
+         "version" : "0.42"
       },
       "MySQL::Diff::Database" : {
          "file" : "lib/MySQL/Diff/Database.pm",
-         "version" : "0.41"
+         "version" : "0.42"
       },
       "MySQL::Diff::Table" : {
          "file" : "lib/MySQL/Diff/Table.pm",
-         "version" : "0.41"
+         "version" : "0.42"
       },
       "MySQL::Diff::Utils" : {
          "file" : "lib/MySQL/Diff/Utils.pm",
-         "version" : "0.41"
+         "version" : "0.42"
       }
    },
    "release_status" : "stable",
@@ -55,5 +55,5 @@
          "url" : "http://github.com/aspiers/mysqldiff"
       }
    },
-   "version" : "0.41"
+   "version" : "0.42"
 }
