@@ -1,5 +1,8 @@
 # Changes log for Test::CPAN::Meta
 
+0.41    5th October 2011
+        - tidy up POD
+
 0.40    5th October 2011
         - fix issue with hyphens in database names
         - made --tolerant ignore COLLATE and AUTO_INCREMENT
