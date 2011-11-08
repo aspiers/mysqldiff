@@ -137,6 +137,7 @@ sub fields          { my $self = shift; return $self->{fields};         }
 sub primary_key     { my $self = shift; return $self->{primary_key};    }
 sub indices         { my $self = shift; return $self->{indices};        }
 sub options         { my $self = shift; return $self->{options};        }
+sub foreign_key     { my $self = shift; return $self->{foreign_key};    }
 
 sub isa_field       { my $self = shift; return $_[0] && $self->{fields}{$_[0]}   ? 1 : 0; }
 sub isa_primary     { my $self = shift; return $_[0] && $self->{primary}{$_[0]}  ? 1 : 0; }
@@ -178,6 +179,15 @@ sub _parse {
             $primary =~ s/\((.*?)\)/$1/;
             $self->{primary}{$_} = 1    for(split(/,/, $primary));
 
+            next;
+        }
+        
+        if (/^(?:CONSTRAINT\s+(.*)?)?\s+FOREIGN\s+KEY\s+(.*)$/) {
+            my ($key, $val) = ($1, $2);
+            croak "foreign key '$key' duplicated in table '$name'\n"
+                if $self->{foreign_key}{$key};
+            debug(1,"got foreign key $key");
+            $self->{foreign_key}{$key} = $val;
             next;
         }
 
