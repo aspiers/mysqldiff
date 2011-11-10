@@ -136,6 +136,7 @@ sub field           { my $self = shift; return $self->{fields}{$_[0]};  }
 sub fields          { my $self = shift; return $self->{fields};         }
 sub primary_key     { my $self = shift; return $self->{primary_key};    }
 sub indices         { my $self = shift; return $self->{indices};        }
+sub indices_opts    { my $self = shift; return $self->{indices_opts};   }
 sub options         { my $self = shift; return $self->{options};        }
 sub foreign_key     { my $self = shift; return $self->{foreign_key};    }
 
@@ -191,13 +192,18 @@ sub _parse {
             next;
         }
 
-        if (/^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)(?:\s+USING\s+(?:BTREE|HASH|RTREE))?\s*\((.*)\)$/) {
-            my ($type, $key, $val) = ($1, $2, $3);
+        # Also can be /^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)(?:\s+USING\s+(?:BTREE|HASH|RTREE))?\s*\((.*)\)$/
+        # and /^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)\s+\((.*)\)(\s+USING\s+(?:BTREE|HASH|RTREE))?(.*)$/
+        if (/^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)\s+\((.*)\)(.*)$/) {
+            my ($type, $key, $val, $opts) = ($1, $2, $3, $4);
             croak "index '$key' duplicated in table '$name'\n"
                 if $self->{indices}{$key};
             $self->{indices}{$key} = $val;
+            if ($opts) {
+                $self->{indices_opts}{$key} = $opts;
+            }
             $self->{unique}{$key} = 1   if($type =~ /unique/i);
-            debug(4, "got ", defined $self->{unique}{$key} ? 'unique ' : '', "index key '$key': ($val)");
+            debug(1, "got ", defined $self->{unique}{$key} ? 'unique ' : '', "index key '$key': ($val)");
             next;
         }
 
