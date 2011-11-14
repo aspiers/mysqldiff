@@ -243,6 +243,7 @@ sub _parse {
 
     warn "table '$self->{name}' had trailing garbage:\n", join '', @lines
         if @lines;
+        
 }
 
 1;
