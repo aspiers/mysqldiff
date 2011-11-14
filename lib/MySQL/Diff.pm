@@ -149,7 +149,12 @@ sub diff {
         if (! $self->db1->table_by_name($name)) {
             debug(3,"table '$name' added");
             debug(4,"table '$name' added '".$table2->def()."'");
-            push @changes, "-- $name\n" unless !$self->{opts}{'list-tables'};
+            my $additional_tables = '';
+            my $additional_fk_tables = $table2->fk_tables();
+            if ($additional_fk_tables) {
+                $additional_tables = "|" . join "|", keys %$additional_fk_tables;
+            }
+            push @changes, "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
             push @changes, $table2->def() . "\n"
                 unless $self->{opts}{'only-both'};
         }
@@ -162,11 +167,11 @@ sub diff {
         if (!$self->{opts}{'list-tables'}) {
             $out .= $self->_diff_banner();
         }
-        else {
-            $out .= "-- TABLES LIST \n";
-            $out .= join "\n", keys %used_tables;
-            $out .= "\n-- END OF TABLES LIST \n";
-        }
+        #else {
+        #    $out .= "-- TABLES LIST \n";
+        #    $out .= join "\n", keys %used_tables;
+        #    $out .= "\n-- END OF TABLES LIST \n";
+        #}
         $out .= join '', @changes;
     }
     return $out;
@@ -420,7 +425,12 @@ sub _diff_foreign_key {
                     $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
                         unless $self->{opts}{'no-old-defs'};
                     $changes .= "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
-                    push @changes, "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                    my $additional_tables = '';
+                    my $additional_fk_tables = $table2->fk_tables();
+                    if ($additional_fk_tables) {
+                        $additional_tables = "|" . join "|", keys %$additional_fk_tables;
+                    }                    
+                    push @changes, "-- $name1$additional_tables\n" unless !$self->{opts}{'list-tables'};
                     push @changes, $changes;
                 }
             } else {
@@ -439,7 +449,12 @@ sub _diff_foreign_key {
         for my $fk (keys %$fks2) {
             next    if($fks1 && $fks1->{$fk});
             debug(1, "foreign key '$fk' added");
-            push @changes, "-- $name1\n" unless !$self->{opts}{'list-tables'};
+            my $additional_tables = '';
+            my $additional_fk_tables = $table2->fk_tables();
+            if ($additional_fk_tables) {
+                $additional_tables = "|" . join "|", keys %$additional_fk_tables;
+            }
+            push @changes, "-- $name1$additional_tables\n" unless !$self->{opts}{'list-tables'};
             push @changes, "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
         }
     }
