@@ -184,7 +184,7 @@ sub _parse {
             next;
         }
         
-        if (/^(?:CONSTRAINT\s+(.*)?)?\s+FOREIGN\s+KEY\s+(.*)\s+REFERENCES\s+(.*)\s+(.*)$/) {
+        if (/^(?:CONSTRAINT\s+(.*)?)?\s+FOREIGN\s+KEY\s+(.*)\s+REFERENCES\s+(.*?)\s+(.*)$/) {
             my ($key, $column_name, $tbl_name, $opts) = ($1, $2, $3, $4);
             croak "foreign key '$key' duplicated in table '$name'\n"
                 if $self->{foreign_key}{$key};

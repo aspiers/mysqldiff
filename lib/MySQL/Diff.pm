@@ -114,13 +114,12 @@ sub diff {
     my $self = shift;
     my $table_re = $self->{opts}{'table-re'};
     my @changes;
-    my %used_tables = ();
 
     debug(1, "\ncomparing databases");
 
     for my $table1 ($self->db1->tables()) {
         my $name = $table1->name();
-        $used_tables{'-- '. $name} = 1;
+        $self->{'used_tables'}{$name} = 1;
         debug(4, "table 1 $name = ".Dumper($table1));
         if ($table_re && $name !~ $table_re) {
             debug(2,"table '$name' didn't match /$table_re/; ignoring");
@@ -140,7 +139,7 @@ sub diff {
 
     for my $table2 ($self->db2->tables()) {
         my $name = $table2->name();
-        $used_tables{'-- '. $name} = 1;
+        $self->{'used_tables'}{$name} = 1;
         debug(4, "table 2 $name = ".Dumper($table2));
         if ($table_re && $name !~ $table_re) {
             debug(2,"table '$name' matched $self->{opts}{'table-re'}; ignoring");
@@ -153,6 +152,7 @@ sub diff {
             my $additional_fk_tables = $table2->fk_tables();
             if ($additional_fk_tables) {
                 $additional_tables = "|" . join "|", keys %$additional_fk_tables;
+                push @changes, $self->_add_ref_tables($additional_fk_tables);
             }
             push @changes, "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
             push @changes, $table2->def() . "\n"
@@ -179,6 +179,30 @@ sub diff {
 
 # ------------------------------------------------------------------------------
 # Private Methods
+
+sub _add_ref_tables {
+    my ($self, $tables) = @_;
+    my @changes = ();
+    for my $name (keys %$tables) {
+        if (!$self->{'used_tables'}{$name}) {
+            $self->{'used_tables'}{$name} = 1;
+            my $table = $self->db2->table_by_name($name);
+            debug(1, $name);
+            if ($table) {
+                my $additional_tables = '';
+                my $additional_fk_tables = $table->fk_tables();
+                if ($additional_fk_tables) {
+                        $additional_tables = "|" . join "|", keys %$additional_fk_tables;
+                        push @changes, $self->_add_ref_tables($additional_fk_tables);
+                }
+                push @changes, "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
+                push @changes, $table->def() . "\n"
+            }
+        }
+    }
+    return @changes;
+}
+
 
 sub _diff_banner {
     my ($self) = @_;
@@ -418,7 +442,7 @@ sub _diff_foreign_key {
             debug(1,"$name1 has fk '$fk'");
 
             if ($fks2 && $fks2->{$fk}) {
-                if($fks1->{$fk} ne $fks2->{$fk}) 
+                if($fks1->{$fk} ne $fks2->{$fk})  
                 {
                     debug(1,"foreign key '$fk' changed");
                     my $changes = "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
