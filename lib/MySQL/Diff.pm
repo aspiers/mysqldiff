@@ -131,9 +131,11 @@ sub diff {
             push @changes, $self->_diff_tables($table1, $table2);
         } else {
             debug(3,"table '$name' dropped");
-            push @changes, "-- $name\n" unless !$self->{opts}{'list-tables'};
-            push @changes, "DROP TABLE $name;\n\n"
-                unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'};
+            my $change = '';
+            $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+            $change .= "DROP TABLE $name;\n\n";
+            push @changes, [$change, {'k' => 5}]                 
+                unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; # drop table after all
         }
     }
 
@@ -154,8 +156,10 @@ sub diff {
                 $additional_tables = "|" . join "|", keys %$additional_fk_tables;
                 push @changes, $self->_add_ref_tables($additional_fk_tables);
             }
-            push @changes, "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
-            push @changes, $table2->def() . "\n"
+            my $change = '';
+            $change = "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
+            $change .= $table2->def() . "\n";
+            push @changes, [$change, {'k' => 5}]
                 unless $self->{opts}{'only-both'};
         }
     }
@@ -167,12 +171,15 @@ sub diff {
         if (!$self->{opts}{'list-tables'}) {
             $out .= $self->_diff_banner();
         }
+        my @sorted = sort { return $b->[1]->{'k'} cmp $a->[1]->{'k'} } @changes;
         #else {
         #    $out .= "-- TABLES LIST \n";
         #    $out .= join "\n", keys %used_tables;
         #    $out .= "\n-- END OF TABLES LIST \n";
         #}
-        $out .= join '', @changes;
+        my $column_index = 0;
+        my $line = join '', map $_->[$column_index], @sorted;
+        $out .= $line;
     }
     return $out;
 }
@@ -195,8 +202,10 @@ sub _add_ref_tables {
                         $additional_tables = "|" . join "|", keys %$additional_fk_tables;
                         push @changes, $self->_add_ref_tables($additional_fk_tables);
                 }
-                push @changes, "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
-                push @changes, $table->def() . "\n"
+                my $change = '';
+                $change = "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
+                $change .= $table->def()."\n";
+                push @changes, [$change, {'k' => 5}];
             }
         }
     }
@@ -230,15 +239,13 @@ EOF
 
 sub _diff_tables {
     my $self = shift;
-    my @changes = ( 
-        $self->_diff_fields(@_),
-        $self->_diff_indices(@_),
-        $self->_diff_primary_key(@_),
-        $self->_diff_foreign_key(@_),
-        $self->_diff_options(@_)        
-    );
+    my @changes = $self->_diff_fields(@_);
+    push @changes, $self->_diff_indices(@_);
+    push @changes, $self->_diff_primary_key(@_);
+    push @changes, $self->_diff_foreign_key(@_);
+    push @changes, $self->_diff_options(@_);    
 
-    $changes[-1] =~ s/\n*$/\n/  if (@changes);
+    #$changes[-1] =~ s/\n*$/\n/  if (@changes);
     return @changes;
 }
 
@@ -272,21 +279,22 @@ sub _diff_fields {
                          ($f1 ne "$f2 NOT NULL") ))
                     {
                         debug(3,"field '$field' changed");
-
-                        my $change = "ALTER TABLE $name1 CHANGE COLUMN $field $field $f2;";
+                        my $change = '';
+                        $change =  "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                        $change .= "ALTER TABLE $name1 CHANGE COLUMN $field $field $f2;";
                         $change .= " # was $f1" unless $self->{opts}{'no-old-defs'};
                         $change .= "\n";
-                        push @changes, "-- $name1\n" unless !$self->{opts}{'list-tables'};
-                        push @changes, $change;
+                        push @changes, [$change, {'k' => 5}]; # column must be changed/added first
                     }
                 }
             } else {
                 debug(3,"field '$field' removed");
-                my $change = "ALTER TABLE $name1 DROP COLUMN $field;";
+                my $change = '';
+                $change = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                $change .= "ALTER TABLE $name1 DROP COLUMN $field;";
                 $change .= " # was $fields1->{$field}" unless $self->{opts}{'no-old-defs'};
                 $change .= "\n";
-                push @changes, "-- $name1\n" unless !$self->{opts}{'list-tables'};
-                push @changes, $change;
+                push @changes, [$change, {'k' => 1}]; # column must be dropped last
             }
         }
     }
@@ -295,8 +303,10 @@ sub _diff_fields {
         for my $field (keys %$fields2) {
             unless($fields1 && $fields1->{$field}) {
                 debug(3,"field '$field' added");
-                push @changes, "-- $name1\n" unless !$self->{opts}{'list-tables'};
-                push @changes, "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field};\n";
+                my $change = '';
+                $change = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                $change .= "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field};\n";
+                push @changes, [$change, {'k' => 5}];
             }
         }
     }
@@ -342,23 +352,25 @@ sub _diff_indices {
                     debug(1,"index '$index' changed");
                     my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 
                                    $table2->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
-                    my $changes = "ALTER TABLE $name1 DROP INDEX $index;";
+                    my $changes = '';
+                    $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                    $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
                     $changes .= " # was $old_type ($indices1->{$index})$ind1_opts"
                         unless $self->{opts}{'no-old-defs'};
                     $changes .= "\nALTER TABLE $name1 ADD $new_type $index ($indices2->{$index})$ind2_opts;\n";
-                    push @changes, "-- $name1\n" unless !$self->{opts}{'list-tables'};
-                    push @changes, $changes;
+                    push @changes, [$changes, {'k' => 2}]; # index must be added/changed after column add/change
                 }
             } else {
                 debug(1,"index '$index' removed");
                 my $auto = _check_for_auto_col($table2, $indices1->{$index}, 1) || '';
-                my $changes = $auto ? _index_auto_col($table1, $indices1->{$index}) : '';
+                my $changes = '';
+                $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                $changes .= $auto ? _index_auto_col($table1, $indices1->{$index}) : '';
                 $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
-                $changes .= " # was $old_type ($indices1->{$index})$ind1_opts"
+                $changes .= " # was $old_type ($indices1->{$index})$ind1_opts" 
                     unless $self->{opts}{'no-old-defs'};
                 $changes .= "\n";
-                push @changes, "-- $name1\n" unless !$self->{opts}{'list-tables'};
-                push @changes, $changes;
+                push @changes, [$changes, {'k' => 3}]; # index must be dropped before column drop
             }
         }
     }
@@ -372,8 +384,10 @@ sub _diff_indices {
             if ($opts2->{$index}) {
                 $opts = $opts2->{$index};
             }
-            push @changes, "-- $name1\n" unless !$self->{opts}{'list-tables'};
-            push @changes, "ALTER TABLE $name1 ADD $new_type $index ($indices2->{$index})$opts;\n";
+            my $changes = '';
+            $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+            $changes .= "ALTER TABLE $name1 ADD $new_type $index ($indices2->{$index})$opts;\n";
+            push @changes, [$changes, {'k' => 2}];
         }
     }
 
@@ -399,7 +413,7 @@ sub _diff_primary_key {
         $changes = _index_auto_col($table2, $primary1);
         $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
         $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
-        return ( "$changes\n" );
+        return ["$changes\n", {'k' => 4}]; # DROP PK FIRST
     }
 
     if (! $primary1 && $primary2) {
@@ -407,19 +421,20 @@ sub _diff_primary_key {
         my $changes = '';
         $changes .= "-- $name1\n" unless !$self->{opts}{'list-tables'};
         $changes .= "ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
-        return ("$changes\n");
+        return ["$changes\n", {'k' => 3}]; # ADD/CHANGE PK AFTER COLUMN ADD
     }
 
     if ($primary1 ne $primary2) {
         debug(3,"primary key changed");
         my $auto = _check_for_auto_col($table2, $primary1) || '';
-        my $changes = $auto ? _index_auto_col($table2, $auto) : '';
+        my $changes = '';
+        $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+        $changes .= $auto ? _index_auto_col($table2, $auto) : '';
         $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
         $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
         $changes .= "\nALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
         $changes .= "ALTER TABLE $name1 DROP INDEX $auto;\n"    if($auto);
-        push @changes, "-- $name1\n" unless !$self->{opts}{'list-tables'};
-        push @changes, $changes;
+        push @changes, [$changes, {'k' => 3}];
     }
 
     return @changes;
@@ -445,26 +460,28 @@ sub _diff_foreign_key {
                 if($fks1->{$fk} ne $fks2->{$fk})  
                 {
                     debug(1,"foreign key '$fk' changed");
-                    my $changes = "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
-                    $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
-                        unless $self->{opts}{'no-old-defs'};
-                    $changes .= "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
                     my $additional_tables = '';
                     my $additional_fk_tables = $table2->fk_tables();
                     if ($additional_fk_tables) {
                         $additional_tables = "|" . join "|", keys %$additional_fk_tables;
-                    }                    
-                    push @changes, "-- $name1$additional_tables\n" unless !$self->{opts}{'list-tables'};
-                    push @changes, $changes;
+                    }   
+                    my $changes = '';
+                    $changes = "-- $name1$additional_tables\n" unless !$self->{opts}{'list-tables'};
+                    $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
+                    $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
+                        unless $self->{opts}{'no-old-defs'};
+                    $changes .= "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";                 
+                    push @changes, [$changes, {'k' => 1}]; # ADD/CHANGE FK LAST
                 }
             } else {
                 debug(1,"foreign key '$fk' removed");
-                my $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
+                my $changes = '';
+                $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
                 $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
                         unless $self->{opts}{'no-old-defs'};
                 $changes .= "\n";
-                push @changes, "-- $name1\n" unless !$self->{opts}{'list-tables'};
-                push @changes, $changes;
+                push @changes, [$changes, {'k' => 5}]; # DROP FK FIRST
             }
         }
     }
@@ -478,8 +495,10 @@ sub _diff_foreign_key {
             if ($additional_fk_tables) {
                 $additional_tables = "|" . join "|", keys %$additional_fk_tables;
             }
-            push @changes, "-- $name1$additional_tables\n" unless !$self->{opts}{'list-tables'};
-            push @changes, "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
+            my $change = '';
+            $change = "-- $name1$additional_tables\n" unless !$self->{opts}{'list-tables'};
+            $change .= "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
+            push @changes, [$change, {'k' => 1}];
         }
     }
 
@@ -533,11 +552,12 @@ sub _diff_options {
     }
 
     if ($options1 ne $options2) {
-        my $change = "ALTER TABLE $name $options2;";
+        my $change = '';
+        $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+        $change .= "ALTER TABLE $name $options2;";
         $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
         $change .= "\n";
-        push @changes, "-- $name\n" unless !$self->{opts}{'list-tables'};
-        push @changes, $change;
+        push @changes, [$change, {'k' => 0}]; # the lastest
     }
 
     return @changes;
