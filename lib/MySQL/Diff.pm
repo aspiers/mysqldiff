@@ -361,7 +361,6 @@ sub _diff_indices {
                     push @changes, [$changes, {'k' => 2}]; # index must be added/changed after column add/change
                 }
             } else {
-                debug(1,"index '$index' removed");
                 my $auto = _check_for_auto_col($table2, $indices1->{$index}, 1) || '';
                 my $changes = '';
                 $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
@@ -425,6 +424,7 @@ sub _diff_primary_key {
     }
 
     if ($primary1 ne $primary2) {
+        debug(-1, "Primary 1: $primary1 ;Primary 2: $primary2");
         debug(3,"primary key changed");
         my $auto = _check_for_auto_col($table2, $primary1) || '';
         my $changes = '';
@@ -515,8 +515,10 @@ sub _check_for_auto_col {
 
     $fields =~ s/^\s*\((.*)\)\s*$/$1/g; # strip brackets if any
     my @fields = split /\s*,\s*/, $fields;
+    debug(-1, join '___', @fields);
 
     for my $field (@fields) {
+        next if (!$table->field($field));
         next if($table->field($field) !~ /auto_increment/i);
         next if($table->isa_index($field));
         next if($primary && $table->isa_primary($field));
