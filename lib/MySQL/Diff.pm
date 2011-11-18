@@ -245,7 +245,7 @@ sub _diff_tables {
     push @changes, $self->_diff_foreign_key(@_);
     push @changes, $self->_diff_options(@_);    
 
-    #$changes[-1] =~ s/\n*$/\n/  if (@changes);
+    $changes[-1][0] =~ s/\n*$/\n/  if (@changes);
     return @changes;
 }
 
@@ -316,7 +316,6 @@ sub _diff_fields {
 
 sub _diff_indices {
     my ($self, $table1, $table2) = @_;
-
     my $name1 = $table1->name();
 
     my $indices1 = $table1->indices();
@@ -424,7 +423,6 @@ sub _diff_primary_key {
     }
 
     if ($primary1 ne $primary2) {
-        debug(-1, "Primary 1: $primary1 ;Primary 2: $primary2");
         debug(3,"primary key changed");
         my $auto = _check_for_auto_col($table2, $primary1) || '';
         my $changes = '';
@@ -515,7 +513,6 @@ sub _check_for_auto_col {
 
     $fields =~ s/^\s*\((.*)\)\s*$/$1/g; # strip brackets if any
     my @fields = split /\s*,\s*/, $fields;
-    debug(-1, join '___', @fields);
 
     for my $field (@fields) {
         next if (!$table->field($field));
