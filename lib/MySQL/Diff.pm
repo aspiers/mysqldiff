@@ -141,13 +141,13 @@ sub diff {
 
     for my $table2 ($self->db2->tables()) {
         my $name = $table2->name();
-        $self->{'used_tables'}{$name} = 1;
         debug(4, "table 2 $name = ".Dumper($table2));
         if ($table_re && $name !~ $table_re) {
             debug(2,"table '$name' matched $self->{opts}{'table-re'}; ignoring");
             next;
         }
-        if (! $self->db1->table_by_name($name)) {
+        if (! $self->db1->table_by_name($name) && ! $self->{'used_tables'}{$name}) {
+            $self->{'used_tables'}{$name} = 1;
             debug(3,"table '$name' added");
             debug(4,"table '$name' added '".$table2->def()."'");
             my $additional_tables = '';
