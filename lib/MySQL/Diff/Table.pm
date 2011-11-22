@@ -38,7 +38,7 @@ our $VERSION = '0.43';
 # Libraries
 
 use Carp qw(:DEFAULT);
-use MySQL::Diff::Utils qw(debug);
+use MySQL::Diff::Utils qw(debug get_save_quotes);
 
 # ------------------------------------------------------------------------------
 
@@ -152,12 +152,14 @@ sub is_fulltext     { my $self = shift; return $_[0] && $self->{fulltext}{$_[0]}
 
 sub _parse {
     my $self = shift;
-
-    $self->{def} =~ s/`([^`]+)`/$1/gs;  # later versions quote names
+    debug(1,"parsing table def '$self->{def}'");
+    my $c = get_save_quotes();
+    if (!$c) {
+        $self->{def} =~ s/`([^`]+)`/$1/gs; # later versions quote names
+    }
     $self->{def} =~ s/\n+/\n/;
     $self->{lines} = [ grep ! /^\s*$/, split /(?=^)/m, $self->{def} ];
     my @lines = @{$self->{lines}};
-    debug(4,"parsing table def '$self->{def}'");
 
     my $name;
     if ($lines[0] =~ /^\s*create\s+table\s+(\S+)\s+\(\s*$/i) {

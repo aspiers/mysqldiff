@@ -29,7 +29,7 @@ our $VERSION = '0.43';
 # Libraries
 
 use MySQL::Diff::Database;
-use MySQL::Diff::Utils qw(debug debug_level debug_file);
+use MySQL::Diff::Utils qw(debug debug_level debug_file set_save_quotes);
 
 use Data::Dumper;
 
@@ -57,9 +57,13 @@ sub new {
     bless $self, ref $class || $class;
 
     $self->{opts} = \%hash;
-
+    
     if($hash{debug})        { debug_level($hash{debug})     ; delete $hash{debug};      }
     if($hash{debug_file})   { debug_file($hash{debug_file}) ; delete $hash{debug_file}; }
+    
+    if ($hash{'save-quotes'}) {
+        set_save_quotes($hash{'save-quotes'});
+    }
 
     debug(3,"\nconstructing new MySQL::Diff");
 

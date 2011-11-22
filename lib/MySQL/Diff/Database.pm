@@ -35,7 +35,7 @@ use Carp qw(:DEFAULT);
 use File::Slurp;
 use IO::File;
 
-use MySQL::Diff::Utils qw(debug);
+use MySQL::Diff::Utils qw(debug get_save_quotes);
 use MySQL::Diff::Table;
 
 # ------------------------------------------------------------------------------
@@ -260,7 +260,10 @@ sub _parse_defs {
 
     debug(2, "parsing table defs");
     my $defs = join '', grep ! /^\s*(\#|--|SET|\/\*)/, @{$self->{_defs}};
-    $defs =~ s/`//sg;
+    my $c = get_save_quotes();
+    if (!$c) {
+        $defs =~ s/`//sg;
+    }
     my @tables = split /(?=^\s*(?:create|alter|drop)\s+table\s+)/im, $defs;
     $self->{_tables} = [];
     for my $table (@tables) {
