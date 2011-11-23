@@ -123,48 +123,65 @@ sub diff {
 
     for my $table1 ($self->db1->tables()) {
         my $name = $table1->name();
-        $self->{'used_tables'}{$name} = 1;
         debug(4, "table 1 $name = ".Dumper($table1));
         if ($table_re && $name !~ $table_re) {
             debug(2,"table '$name' didn't match /$table_re/; ignoring");
             next;
         }
-        debug(2,"looking at tables called '$name'");
-        if (my $table2 = $self->db2->table_by_name($name)) {
-            debug(3,"comparing tables called '$name'");
-            push @changes, $self->_diff_tables($table1, $table2);
+        if (!$self->{opts}{'refs'}) {
+            $self->{'used_tables'}{$name} = 1;       
+            debug(2,"looking at tables called '$name'");
+            if (my $table2 = $self->db2->table_by_name($name)) {
+                debug(3,"comparing tables called '$name'");
+                push @changes, $self->_diff_tables($table1, $table2);
+            } else {
+                debug(3,"table '$name' dropped");
+                my $change = '';
+                $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                $change .= "DROP TABLE $name;\n\n";
+                push @changes, [$change, {'k' => 5}]                 
+                    unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; # drop table after all
+            }
         } else {
-            debug(3,"table '$name' dropped");
-            my $change = '';
-            $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
-            $change .= "DROP TABLE $name;\n\n";
-            push @changes, [$change, {'k' => 5}]                 
-                unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; # drop table after all
+                if (!$self->{'used_tables'}{$name}) {
+                    $self->{'used_tables'}{$name} = 1;
+                    my $additional_tables = '';
+                    my $additional_fk_tables = $table1->fk_tables();
+                    if ($additional_fk_tables) {
+                        $additional_tables = "|" . join "|", keys %$additional_fk_tables;
+                        push @changes, $self->_add_ref_tables($additional_fk_tables);
+                    }
+                    my $change = '';
+                    $change = "$name$additional_tables\n";
+                    push @changes, [$change, {'k' => 1}];
+                }
         }
     }
 
-    for my $table2 ($self->db2->tables()) {
-        my $name = $table2->name();
-        debug(4, "table 2 $name = ".Dumper($table2));
-        if ($table_re && $name !~ $table_re) {
-            debug(2,"table '$name' matched $self->{opts}{'table-re'}; ignoring");
-            next;
-        }
-        if (! $self->db1->table_by_name($name) && ! $self->{'used_tables'}{$name}) {
-            $self->{'used_tables'}{$name} = 1;
-            debug(3,"table '$name' added");
-            debug(4,"table '$name' added '".$table2->def()."'");
-            my $additional_tables = '';
-            my $additional_fk_tables = $table2->fk_tables();
-            if ($additional_fk_tables) {
-                $additional_tables = "|" . join "|", keys %$additional_fk_tables;
-                push @changes, $self->_add_ref_tables($additional_fk_tables);
+    if (!$self->{opts}{'refs'}) {
+        for my $table2 ($self->db2->tables()) {
+            my $name = $table2->name();
+            debug(4, "table 2 $name = ".Dumper($table2));
+            if ($table_re && $name !~ $table_re) {
+                debug(2,"table '$name' matched $self->{opts}{'table-re'}; ignoring");
+                next;
             }
-            my $change = '';
-            $change = "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
-            $change .= $table2->def() . "\n";
-            push @changes, [$change, {'k' => 5}]
-                unless $self->{opts}{'only-both'};
+            if (! $self->db1->table_by_name($name) && ! $self->{'used_tables'}{$name}) {
+                $self->{'used_tables'}{$name} = 1;
+                debug(3,"table '$name' added");
+                debug(4,"table '$name' added '".$table2->def()."'");
+                my $additional_tables = '';
+                my $additional_fk_tables = $table2->fk_tables();
+                if ($additional_fk_tables) {
+                    $additional_tables = "|" . join "|", keys %$additional_fk_tables;
+                    push @changes, $self->_add_ref_tables($additional_fk_tables);
+                }
+                my $change = '';
+                $change = "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
+                $change .= $table2->def() . "\n";
+                push @changes, [$change, {'k' => 5}]
+                    unless $self->{opts}{'only-both'};
+            }
         }
     }
 
@@ -172,7 +189,7 @@ sub diff {
 
     my $out = '';
     if (@changes) {
-        if (!$self->{opts}{'list-tables'}) {
+        if (!$self->{opts}{'list-tables'} && !$self->{opts}{'refs'}) {
             $out .= $self->_diff_banner();
         }
         my @sorted = sort { return $b->[1]->{'k'} cmp $a->[1]->{'k'} } @changes;
@@ -197,7 +214,12 @@ sub _add_ref_tables {
     for my $name (keys %$tables) {
         if (!$self->{'used_tables'}{$name}) {
             $self->{'used_tables'}{$name} = 1;
-            my $table = $self->db2->table_by_name($name);
+            my $table;
+            if (!$self->{opts}{'refs'}) {
+                $table = $self->db2->table_by_name($name);
+            } else {
+                $table = $self->db1->table_by_name($name);
+            }
             debug(1, $name);
             if ($table) {
                 my $additional_tables = '';
@@ -207,9 +229,13 @@ sub _add_ref_tables {
                         push @changes, $self->_add_ref_tables($additional_fk_tables);
                 }
                 my $change = '';
-                $change = "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
-                $change .= $table->def()."\n";
-                push @changes, [$change, {'k' => 5}];
+                if (!$self->{opts}{'refs'}) {
+                    $change = "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
+                    $change .= $table->def()."\n";
+                } else {
+                    $change = "$name$additional_tables\n";
+                }
+                push @changes, [$change, {'k' => 2}];
             }
         }
     }
