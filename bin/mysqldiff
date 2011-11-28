@@ -138,9 +138,7 @@ $| = 1;
 my $diffs = $md->diff();
 print $diffs;
 apply($md, $diffs) if $opts{apply} || $opts{'batch-apply'};
-if ($opts{'list-tables'} || $opts{'refs'}) {
-  debug(1, "Execution time: ".(time() - $start_time)." secs.\n");
-}
+
 exit 0;
 
 ##############################################################################
