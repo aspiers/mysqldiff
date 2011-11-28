@@ -160,7 +160,6 @@ sub _parse {
     $self->{def} =~ s/\n+/\n/;
     $self->{lines} = [ grep ! /^\s*$/, split /(?=^)/m, $self->{def} ];
     my @lines = @{$self->{lines}};
-
     my $name;
     if ($lines[0] =~ /^\s*create\s+table\s+(\S+)\s+\(\s*$/i) {
         $self->{name} = $1;
@@ -231,8 +230,6 @@ sub _parse {
 
         if (/^(\S+)\s*(.*)/) {
             my ($field, $fdef) = ($1, $2);
-            croak "definition for field '$field' duplicated in table '$name'\n"
-                if $self->{fields}{$field};
             $self->{fields}{$field} = $fdef;
             debug(4,"got field def '$field': $fdef");
             next;

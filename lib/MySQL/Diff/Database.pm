@@ -259,11 +259,16 @@ sub _parse_defs {
     return if $self->{_tables};
 
     debug(2, "parsing table defs");
-    my $defs = join '', grep ! /^\s*(\#|--|SET|\/\*)/, @{$self->{_defs}};
+    my $defs = join '', @{$self->{_defs}};
     my $c = get_save_quotes();
     if (!$c) {
         $defs =~ s/`//sg;
     }
+    #warn "DEF1: ", join '', $defs;
+    $defs =~ s/\s*(\#|--).*?\n//g; # delete on line comments
+    $defs =~ s/\s*\/\*[^\/\*]*?SET\s+[^\/\*]*?\*\/;\s*/\n/gs; #delete 40* comments with SET
+    $defs =~ s/\s*\/\*[^\/\*]*?\*\/\s*//gs; #delete all multiline comments
+    #warn "DEF2: ", join '', $defs;
     my @tables = split /(?=^\s*(?:create|alter|drop)\s+table\s+)/im, $defs;
     $self->{_tables} = [];
     for my $table (@tables) {

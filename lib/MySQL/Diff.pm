@@ -123,19 +123,19 @@ sub diff {
 
     for my $table1 ($self->db1->tables()) {
         my $name = $table1->name();
-        debug(4, "table 1 $name = ".Dumper($table1));
+        debug(6, "table 1 $name = ".Dumper($table1));
         if ($table_re && $name !~ $table_re) {
             debug(2,"table '$name' didn't match /$table_re/; ignoring");
             next;
         }
         if (!$self->{opts}{'refs'}) {
             $self->{'used_tables'}{$name} = 1;       
-            debug(2,"looking at tables called '$name'");
+            debug(1,"looking at tables called '$name'");
             if (my $table2 = $self->db2->table_by_name($name)) {
-                debug(3,"comparing tables called '$name'");
+                debug(1,"comparing tables called '$name'");
                 push @changes, $self->_diff_tables($table1, $table2);
             } else {
-                debug(3,"table '$name' dropped");
+                debug(1,"table '$name' dropped");
                 my $change = '';
                 $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
                 $change .= "DROP TABLE $name;\n\n";
@@ -161,7 +161,7 @@ sub diff {
     if (!$self->{opts}{'refs'}) {
         for my $table2 ($self->db2->tables()) {
             my $name = $table2->name();
-            debug(4, "table 2 $name = ".Dumper($table2));
+            debug(6, "table 2 $name = ".Dumper($table2));
             if ($table_re && $name !~ $table_re) {
                 debug(2,"table '$name' matched $self->{opts}{'table-re'}; ignoring");
                 next;
@@ -169,7 +169,7 @@ sub diff {
             if (! $self->db1->table_by_name($name) && ! $self->{'used_tables'}{$name}) {
                 $self->{'used_tables'}{$name} = 1;
                 debug(3,"table '$name' added");
-                debug(4,"table '$name' added '".$table2->def()."'");
+                debug(1,"table '$name' added '".$table2->def()."'");
                 my $additional_tables = '';
                 my $additional_fk_tables = $table2->fk_tables();
                 if ($additional_fk_tables) {
