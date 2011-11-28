@@ -61,21 +61,24 @@ sub new {
     my $self = {};
     bless $self, ref $class || $class;
 
-    debug(3,"\nconstructing new MySQL::Diff::Database");
+    debug(1,"\nconstructing new MySQL::Diff::Database");
 
     my $string = _auth_args_string(%{$p{auth}});
-    debug(3,"auth args: $string");
+    debug(1,"auth args: $string");
     $self->{_source}{auth} = $string;
     $self->{_source}{dbh} = $p{dbh} if($p{dbh});
 
     if ($p{file}) {
+        debug(1, "Started to canonicalise file ".$p{file});
         $self->_canonicalise_file($p{file});
     } elsif ($p{db}) {
+        debug(1, "Started to read db ".$p{db});
         $self->_read_db($p{db});
     } else {
         confess "MySQL::Diff::Database::new called without db or file params";
     }
 
+    debug(1, "Started to parse defs");
     $self->_parse_defs();
     return $self;
 }
@@ -171,6 +174,7 @@ Note that is used as a function call, not a method call.
 =cut
 
 sub available_dbs {
+    debug(1, "Started to get available databases list");
     my %auth = @_;
     my $args = _auth_args_string(%auth);
   
@@ -229,7 +233,7 @@ sub _canonicalise_file {
 sub _read_db {
     my ($self, $db) = @_;
     $self->{_source}{db} = $db;
-    debug(3, "fetching table defs from db $db");
+    debug(1, "fetching table defs from db $db");
     $self->_get_defs($db);
 }
 
@@ -237,12 +241,13 @@ sub _get_defs {
     my ($self, $db) = @_;
 
     my $args = $self->{_source}{auth};
-    my $fh = IO::File->new("mysqldump -d $args $db 2>&1 |")
+    my $start_time = time();
+    my $fh = IO::File->new("mysqldump -d -q --single-transaction $args $db 2>&1 |")
         or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
-    debug(3, "running mysqldump -d $args $db");
+    debug(2, "running mysqldump -d $args $db");
     my $defs = $self->{_defs} = [ <$fh> ];
     $fh->close;
-
+    debug(1, "dump time: ".(time() - $start_time));
     if (grep /mysqldump: Got error: .*: Unknown database/, @$defs) {
         die <<EOF;
 Failed to create temporary database $db

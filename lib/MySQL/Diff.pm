@@ -65,7 +65,7 @@ sub new {
         set_save_quotes($hash{'save-quotes'});
     }
 
-    debug(3,"\nconstructing new MySQL::Diff");
+    debug(1,"\nconstructing new MySQL::Diff");
 
     return $self;
 }
@@ -87,6 +87,7 @@ password arguments that have been supplied.
 
 sub register_db {
     my ($self, $name, $inx) = @_;
+    debug(1, "Register database $name as # $inx");
     return unless $inx == 1 || $inx == 2;
 
     my $db = ref $name eq 'MySQL::Diff::Database' ? $name : $self->_load_database($name,$inx);
@@ -123,6 +124,7 @@ sub diff {
 
     for my $table1 ($self->db1->tables()) {
         my $name = $table1->name();
+        debug(1, "looking at table '$name' in first database");
         debug(6, "table 1 $name = ".Dumper($table1));
         if ($table_re && $name !~ $table_re) {
             debug(2,"table '$name' didn't match /$table_re/; ignoring");
@@ -130,7 +132,6 @@ sub diff {
         }
         if (!$self->{opts}{'refs'}) {
             $self->{'used_tables'}{$name} = 1;       
-            debug(1,"looking at tables called '$name'");
             if (my $table2 = $self->db2->table_by_name($name)) {
                 debug(1,"comparing tables called '$name'");
                 push @changes, $self->_diff_tables($table1, $table2);
@@ -161,6 +162,7 @@ sub diff {
     if (!$self->{opts}{'refs'}) {
         for my $table2 ($self->db2->tables()) {
             my $name = $table2->name();
+            debug(1, "looking at table '$name' in second database");
             debug(6, "table 2 $name = ".Dumper($table2));
             if ($table_re && $name !~ $table_re) {
                 debug(2,"table '$name' matched $self->{opts}{'table-re'}; ignoring");
@@ -168,8 +170,8 @@ sub diff {
             }
             if (! $self->db1->table_by_name($name) && ! $self->{'used_tables'}{$name}) {
                 $self->{'used_tables'}{$name} = 1;
-                debug(3,"table '$name' added");
-                debug(1,"table '$name' added '".$table2->def()."'");
+                debug(1, "table '$name' added");
+                debug(2, "definition of '$name': ".$table2->def());
                 my $additional_tables = '';
                 my $additional_fk_tables = $table2->fk_tables();
                 if ($additional_fk_tables) {
@@ -193,11 +195,6 @@ sub diff {
             $out .= $self->_diff_banner();
         }
         my @sorted = sort { return $b->[1]->{'k'} cmp $a->[1]->{'k'} } @changes;
-        #else {
-        #    $out .= "-- TABLES LIST \n";
-        #    $out .= join "\n", keys %used_tables;
-        #    $out .= "\n-- END OF TABLES LIST \n";
-        #}
         my $column_index = 0;
         my $line = join '', map $_->[$column_index], @sorted;
         $out .= $line;
@@ -220,7 +217,7 @@ sub _add_ref_tables {
             } else {
                 $table = $self->db1->table_by_name($name);
             }
-            debug(1, $name);
+            debug(2, "Related table: '$name'");
             if ($table) {
                 my $additional_tables = '';
                 my $additional_fk_tables = $table->fk_tables();
@@ -595,7 +592,7 @@ sub _diff_options {
 sub _load_database {
     my ($self, $arg, $authnum) = @_;
 
-    debug(2, "parsing arg $authnum: '$arg'\n");
+    debug(1, "Load database: parsing arg $authnum: '$arg'\n");
 
     my %auth;
     for my $auth (qw/dbh host port user password socket/) {
@@ -621,7 +618,7 @@ sub _load_database {
     }
 
     my %dbs = MySQL::Diff::Database::available_dbs(%auth);
-    debug(2, "  available databases: ", (join ', ', keys %dbs), "\n");
+    debug(1, "  available databases: ", (join ', ', keys %dbs), "\n");
 
     if ($dbs{$arg}) {
         return MySQL::Diff::Database->new(db => $arg, auth => \%auth);

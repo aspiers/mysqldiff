@@ -122,14 +122,14 @@ GetOptions(\%opts, "help|?", "debug|d:i", "apply|A", "batch-apply|B",
 usage() if ( (@ARGV < 1) or (@ARGV > 2) or $opts{help});
 
 $opts{debug} ||= 0;
-
+my $start_time = time();
 my $md = MySQL::Diff->new(%opts);
 my $db_count = 2;
 if ($opts{refs}) {
   $db_count = 1;
 }
-
-for my $num (1, $db_count) {
+my $num;
+for ($num = 1; $num <= $db_count; $num++) {
   my $new_db = $md->register_db($ARGV[$num-1], $num);
   usage($new_db) unless ref $new_db;
 }
@@ -138,7 +138,9 @@ $| = 1;
 my $diffs = $md->diff();
 print $diffs;
 apply($md, $diffs) if $opts{apply} || $opts{'batch-apply'};
-
+if ($opts{'list-tables'} || $opts{'refs'}) {
+  print "Execution time: ".(time() - $start_time)." secs.\n";
+}
 exit 0;
 
 ##############################################################################
