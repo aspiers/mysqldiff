@@ -159,6 +159,40 @@ sub diff {
         }
     }
 
+    for my $view1 ($self->db1->views()) {
+        my $name = $view1->name();
+        $self->{'used_tables'}{$name} = 1;
+        debug(1, "looking at view '$name' in first database");
+        if (my $view2 = $self->db2->view_by_name($name)) {
+            debug(1, "Comparing views called '$name'");
+            my $f1 = $view1->fields();
+            my $f2 = $view2->fields();
+            my $sel1 = $view1->select();
+            my $sel2 = $view2->select();
+            my $opts1 = $view1->options();
+            my $opts2 = $view2->options();
+            if ( ($f1 ne $f2) || 
+                 ($sel1 ne $sel2) || 
+                 ($opts1->{'security'} ne $opts2->{'security'}) || 
+                 ($opts1->{'trail'} ne $opts2->{'trail'}) || 
+                 ($opts1->{'algorithm'} ne $opts2->{'algorithm'})
+               ) {
+                my $change = '';
+                $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                $change .= "ALTER ALGORITHM=$opts2->{'algorithm'} DEFINER=CURRENT_USER SQL SECURITY $opts2->{'security'} VIEW $name $f2 AS ($sel2) $opts2->{'trail'}";
+                push @changes, [$change, {'k' => 5}]                 
+                    unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
+            }
+        } else {
+            debug(1, "view '$name' dropped");
+            my $change = '';
+            $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+            $change .= "DROP VIEW $name;\n\n";
+            push @changes, [$change, {'k' => 5}]                 
+                 unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
+        }
+    }
+
     if (!$self->{opts}{'refs'}) {
         for my $table2 ($self->db2->tables()) {
             my $name = $table2->name();
@@ -170,7 +204,7 @@ sub diff {
             }
             if (! $self->db1->table_by_name($name) && ! $self->{'used_tables'}{$name}) {
                 $self->{'used_tables'}{$name} = 1;
-                debug(1, "table '$name' added");
+                debug(1, "table '$name' added to diff");
                 debug(2, "definition of '$name': ".$table2->def());
                 my $additional_tables = '';
                 my $additional_fk_tables = $table2->fk_tables();
@@ -181,6 +215,18 @@ sub diff {
                 my $change = '';
                 $change = "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
                 $change .= $table2->def() . "\n";
+                push @changes, [$change, {'k' => 5}]
+                    unless $self->{opts}{'only-both'};
+            }
+        }
+        for my $view2 ($self->db2->views()) {
+            my $name = $view2->name();
+            debug(1, "looking at view '$name' in second database");
+            if (!$self->db1->view_by_name($name) && ! $self->{'used_tables'}{$name}) {
+                $self->{'used_tables'}{$name} = 1;
+                my $change = '';
+                $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                $change .= $view2->def() . "\n";
                 push @changes, [$change, {'k' => 5}]
                     unless $self->{opts}{'only-both'};
             }

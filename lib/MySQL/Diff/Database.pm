@@ -37,6 +37,7 @@ use IO::File;
 
 use MySQL::Diff::Utils qw(debug get_save_quotes);
 use MySQL::Diff::Table;
+use MySQL::Diff::View;
 
 # ------------------------------------------------------------------------------
 
@@ -146,6 +147,16 @@ sub tables {
     return @{$self->{_tables}};
 }
 
+=item * views()
+
+Returns a list of views for the current database
+
+=cut
+sub views {
+    my $self = shift;
+    return @{$self->{_views}};
+}
+
 =item * table_by_name( $name )
 
 Returns the table definition (see L<MySQL::Diff::Table>) for the given table.
@@ -155,6 +166,17 @@ Returns the table definition (see L<MySQL::Diff::Table>) for the given table.
 sub table_by_name {
     my ($self,$name) = @_;
     return $self->{_by_name}{$name};
+}
+
+=item * view_by_name( $name )
+
+Returns the view definitions (see L<MySQL::Diff:View>) for the given view
+
+=cut
+
+sub view_by_name {
+    my ($self,$name) = @_;
+    return $self->{v_by_name}{$name};
 }
 
 =back
@@ -269,20 +291,32 @@ sub _parse_defs {
     if (!$c) {
         $defs =~ s/`//sg;
     }
-    #warn "DEF1: ", join '', $defs;
-    $defs =~ s/\s*(\#|--).*?\n//g; # delete on line comments
-    $defs =~ s/\s*\/\*[^\/\*]*?SET\s+[^\/\*]*?\*\/;\s*/\n/gs; #delete 40* comments with SET
-    $defs =~ s/\s*\/\*[^\/\*]*?\*\/\s*//gs; #delete all multiline comments
-    #warn "DEF2: ", join '', $defs;
-    my @tables = split /(?=^\s*(?:create|alter|drop)\s+table\s+)/im, $defs;
+    $defs =~ s/(\#|--).*?\n//g; # delete singleline comments
+    $defs =~ s/.*?SET\s+.*?;\s*//g; #delete SETs
+    $defs =~ s/\/\*[^\/\*]*?\!\d+\s+([^\/\*]*?)\*\/\s*/\n$1/gs; # get content from executable comments
+    $defs =~ s/\/\*[^\/\*]*?\*\/\s*//gs; #delete all multiline comments
+    my @tables = split /(?=^\s*(?:create|alter|drop)\s+(?:table|.*?view)\s+)/ims, $defs;
     $self->{_tables} = [];
+    $self->{_views} = [];
     for my $table (@tables) {
-        debug(4, "  table def [$table]");
+        debug(1, "  table def [$table]");
         if($table =~ /create\s+table/i) {
             my $obj = MySQL::Diff::Table->new(source => $self->{_source}, def => $table);
-            push @{$self->{_tables}}, $obj;
             $self->{_by_name}{$obj->name()} = $obj;
-        }
+        } 
+        if ($table =~ /create\s+.*?\s+view/is) {
+            my $obj = MySQL::Diff::View->new(source => $self->{_source}, def => $table);
+            $self->{v_by_name}{$obj->name()} = $obj;
+            if ($self->{_by_name}{$obj->name()}) {
+                delete($self->{_by_name}{$obj->name()});
+            }
+        } 
+    }
+    for my $t (keys %{$self->{_by_name}}) {
+        push @{$self->{_tables}}, $self->{_by_name}{$t};
+    }
+    for my $v (keys %{$self->{v_by_name}}) {
+        push @{$self->{_views}}, $self->{v_by_name}{$v};
     }
 }
 
