@@ -306,7 +306,7 @@ sub _parse_defs {
             my $obj = MySQL::Diff::Table->new(source => $self->{_source}, def => $table);
             $self->{_by_name}{$obj->name()} = $obj;
         } 
-        if ($table =~ /create\s+.*?\s+view/is) {
+        elsif ($table =~ /create\s+.*?\s+view/is) {
             my $obj = MySQL::Diff::View->new(source => $self->{_source}, def => $table);
             $self->{v_by_name}{$obj->name()} = $obj;
             if ($self->{_by_name}{$obj->name()}) {
