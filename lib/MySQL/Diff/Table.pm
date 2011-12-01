@@ -168,7 +168,8 @@ sub _parse {
     } else {
         croak "couldn't figure out table name";
     }
-
+    my $end_found = 0;
+    my $table_end = '';
     while (@lines) {
         $_ = shift @lines;
         s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
@@ -221,25 +222,36 @@ sub _parse {
             next;
         }
 
-        if (/^\)\s*(.*?);$/) { # end of table definition
-            $self->{options} = $1;
-            $self->{options} =~ s/ AUTO_INCREMENT=(.*?) / /gs;
-            debug(4,"got table options '$self->{options}'");
-            last;
+        if (/^\)\s*(.*?)$/) { # end of table definition
+            $end_found = 1;
+            my $opt = $1;
+            $opt =~ s/ AUTO_INCREMENT=(.*?) / /gs;
+            $table_end .= $opt;
+            debug(4,"got table options '$opt'");
+            next;
         }
 
         if (/^(\S+)\s*(.*)/) {
             my ($field, $fdef) = ($1, $2);
-            $self->{fields}{$field} = $fdef;
-            debug(4,"got field def '$field': $fdef");
+            if (!$end_found) {
+                $self->{fields}{$field} = $fdef;
+                debug(4,"got field def '$field': $fdef");   
+            } else {
+                $table_end .= "$field $fdef";
+            }
             next;
         }
 
         croak "unparsable line in definition for table '$self->{name}':\n$_";
     }
 
-    warn "table '$self->{name}' didn't have terminator\n"
-        unless defined $self->{options};
+    if ($table_end =~ /^\s*(.*?);$/s) {
+        $self->{options} = $table_end;
+        $self->{options} =~ s/;//gs;
+    } else {
+        warn "table '$self->{name}' didn't have terminator\n"
+            unless defined $self->{options};
+    }
 
     @lines = grep ! m{^/\*!40\d{3} .*? \*/;}, @lines;
     @lines = grep ! m{^(SET |DROP TABLE)}, @lines;
