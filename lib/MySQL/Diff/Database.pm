@@ -293,9 +293,10 @@ sub _parse_defs {
     }
     #warn "DEF1:\n", $defs;
     $defs =~ s/(\#|--).*?\n//g; # delete singleline comments
-    $defs =~ s/.*?SET\s+.*?;\s*//g; #delete SETs
+    $defs =~ s/.*?SET\s+.*?;\s*//ig; #delete SETs
     $defs =~ s/\/\*[^\/\*]*?\!\d+\s+([^\/\*]*?)\*\/\s*/\n$1/gs; # get content from executable comments
     $defs =~ s/\/\*[^\/\*]*?\*\/\s*//gs; #delete all multiline comments
+    $defs =~ s/DELIMITER\s+.*?\s//ig;
     #warn "DEF2:\n", $defs;
     my @tables = split /(?=^\s*(?:create|alter|drop)\s+(?:table|.*?view)\s+)/ims, $defs;
     $self->{_tables} = [];
