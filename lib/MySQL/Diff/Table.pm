@@ -172,8 +172,12 @@ sub _parse {
     my $table_end = '';
     while (@lines) {
         $_ = shift @lines;
-        s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
-        debug(4,"line: [$_]");
+        if (!$end_found) {
+            s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas 
+        } else {
+            s/^\s*(.*?)\s*$/$1/; # trim whitespaces 
+        }
+        debug(1,"line: [$_]");
         if (/^PRIMARY\s+KEY\s+(.+)$/) {
             my $primary = $1;
             croak "two primary keys in table '$self->{name}': '$primary', '$self->{primary_key}'\n"
@@ -237,7 +241,7 @@ sub _parse {
                 $self->{fields}{$field} = $fdef;
                 debug(4,"got field def '$field': $fdef");   
             } else {
-                $table_end .= "$field $fdef";
+                $table_end .= " $field $fdef";
             }
             next;
         }
