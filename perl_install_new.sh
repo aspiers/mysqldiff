@@ -1,1 +1,1 @@
-perl -I /usr/lib/perl5/vendor_perl Build.PL && perl -I /usr/lib/perl5/vendor_perl Build && perl -I /usr/lib/perl5/vendor_perl Build test && sudo perl -I /usr/lib/perl5/vendor_perl Build install
+perl -I /usr/share/perl5 Build.PL && perl -I /usr/share/perl5 Build && perl -I /usr/share/perl5 Build test && sudo perl -I /usr/share/perl5 Build install

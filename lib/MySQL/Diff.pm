@@ -436,7 +436,7 @@ sub _diff_indices {
                 my $auto = _check_for_auto_col($table2, $indices1->{$index}, 1) || '';
                 my $changes = '';
                 $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
-                $changes .= $auto ? _index_auto_col($table1, $indices1->{$index}) : '';
+                $changes .= $auto ? _index_auto_col($table1, $indices1->{$index}, $self->{opts}{'no-old-defs'}) : '';
                 $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
                 $changes .= " # was $old_type ($indices1->{$index})$ind1_opts" 
                     unless $self->{opts}{'no-old-defs'};
@@ -481,7 +481,7 @@ sub _diff_primary_key {
         debug(3,"primary key '$primary1' dropped");
         my $changes = '';
         $changes .= "-- $name1\n" unless !$self->{opts}{'list-tables'};
-        $changes = _index_auto_col($table2, $primary1);
+        $changes = _index_auto_col($table2, $primary1, $self->{opts}{'no-old-defs'});
         $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
         $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
         return ["$changes\n", {'k' => 4}]; # DROP PK FIRST
@@ -500,7 +500,7 @@ sub _diff_primary_key {
         my $auto = _check_for_auto_col($table2, $primary1) || '';
         my $changes = '';
         $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
-        $changes .= $auto ? _index_auto_col($table2, $auto) : '';
+        $changes .= $auto ? _index_auto_col($table2, $auto, $self->{opts}{'no-old-defs'}) : '';
         $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
         $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
         $changes .= "\nALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
@@ -600,9 +600,15 @@ sub _check_for_auto_col {
 }
 
 sub _index_auto_col {
-    my ($table, $field) = @_;
+    my ($table, $field, $comment) = @_;
+    if (!($field =~ /\(.*?\)/)) {
+        $field = '(' . $field . ')';
+    }
     my $name = $table->name;
-    return "ALTER TABLE $name ADD INDEX ($field); # auto columns must always be indexed\n";
+    my $changes = "ALTER TABLE $name ADD INDEX $field;";
+    $changes .= " # auto columns must always be indexed"
+                        unless $comment;
+    return $changes. "\n";
 }
 
 sub _diff_options {
