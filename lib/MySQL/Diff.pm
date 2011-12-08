@@ -430,7 +430,7 @@ sub _diff_indices {
                     $changes .= " # was $old_type ($indices1->{$index})$ind1_opts"
                         unless $self->{opts}{'no-old-defs'};
                     $changes .= "\nALTER TABLE $name1 ADD $new_type $index ($indices2->{$index})$ind2_opts;\n";
-                    push @changes, [$changes, {'k' => 2}]; # index must be added/changed after column add/change
+                    push @changes, [$changes, {'k' => 3}]; # index must be added/changed after column add/change
                 }
             } else {
                 my $auto = _check_for_auto_col($table2, $indices1->{$index}, 1) || '';
@@ -458,7 +458,7 @@ sub _diff_indices {
             my $changes = '';
             $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
             $changes .= "ALTER TABLE $name1 ADD $new_type $index ($indices2->{$index})$opts;\n";
-            push @changes, [$changes, {'k' => 2}];
+            push @changes, [$changes, {'k' => 3}];
         }
     }
 
@@ -581,12 +581,12 @@ sub _diff_foreign_key {
 # auto_increment; if so, we have to add an index for that
 # auto_increment column *before* dropping the composite index, since
 # auto_increment columns must always be indexed.
-sub _check_for_auto_col {
+sub _check_for_auto_col {       
     my ($table, $fields, $primary) = @_;
 
     $fields =~ s/^\s*\((.*)\)\s*$/$1/g; # strip brackets if any
     my @fields = split /\s*,\s*/, $fields;
-
+    
     for my $field (@fields) {
         next if (!$table->field($field));
         next if($table->field($field) !~ /auto_increment/i);
