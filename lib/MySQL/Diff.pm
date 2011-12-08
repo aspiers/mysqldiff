@@ -357,7 +357,11 @@ sub _diff_fields {
                         $change .= "ALTER TABLE $name1 CHANGE COLUMN $field $field $f2;";
                         $change .= " # was $f1" unless $self->{opts}{'no-old-defs'};
                         $change .= "\n";
-                        push @changes, [$change, {'k' => 5}]; # column must be changed/added first
+                        my $weight = 5;
+                        if ($f2 =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
+                                $weight = 1;
+                        }
+                        push @changes, [$change, {'k' => $weight}]; # column must be changed/added first
                     }
                 }
             } else {
@@ -379,7 +383,11 @@ sub _diff_fields {
                 my $change = '';
                 $change = "-- $name1\n" unless !$self->{opts}{'list-tables'};
                 $change .= "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field};\n";
-                push @changes, [$change, {'k' => 5}];
+                my $weight = 5;
+                if ($fields2->{$field} =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
+                        $weight = 1;
+                }
+                push @changes, [$change, {'k' => $weight}];
             }
         }
     }
