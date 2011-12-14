@@ -32,7 +32,7 @@ Parses a table definition into component parts.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.45';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -194,7 +194,7 @@ sub _parse {
             my ($key, $column_name, $tbl_name, $opts) = ($1, $2, $3, $4);
             croak "foreign key '$key' duplicated in table '$name'\n"
                 if $self->{foreign_key}{$key};
-            debug(1,"got foreign key $key with column name: $column_name, table name: $tbl_name, options: $opts");
+            debug(4,"got foreign key $key with column name: $column_name, table name: $tbl_name, options: $opts");
             my $val = $column_name.' REFERENCES '.$tbl_name.' '.$opts;
             $self->{foreign_key}{$key} = $val;
             $self->{fk_tables}{$tbl_name} = 1;
@@ -212,7 +212,7 @@ sub _parse {
                 $self->{indices_opts}{$key} = $opts;
             }
             $self->{unique}{$key} = 1   if($type =~ /unique/i);
-            debug(1, "got ", defined $self->{unique}{$key} ? 'unique ' : '', "index key '$key': ($val)");
+            debug(4, "got ", defined $self->{unique}{$key} ? 'unique ' : '', "index key '$key': ($val)");
             next;
         }
 
