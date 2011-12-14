@@ -17,7 +17,7 @@ Currently contains the debug message handling routines.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.45';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -80,7 +80,7 @@ is equal to or lower than the current debug level.
 
     sub debug {
         my $level = shift;
-        return  unless($debug_level >= $level && @_);
+        return  unless($debug_level & 2**($level-1) && @_);
 
         if($debug_file) {
             if(my $fh = IO::File->new($debug_file, 'a+')) {
