@@ -26,7 +26,7 @@ Parses a database definition into component parts.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.45';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -71,10 +71,10 @@ sub new {
 
     if ($p{file}) {
         debug(1, "Started to canonicalise file ".$p{file});
-        $self->_canonicalise_file($p{file});
+        $self->_canonicalise_file($p{file},$p{table_list});
     } elsif ($p{db}) {
         debug(1, "Started to read db ".$p{db});
-        $self->_read_db($p{db});
+        $self->_read_db($p{db},$p{table_list});
     } else {
         confess "MySQL::Diff::Database::new called without db or file params";
     }
@@ -221,7 +221,7 @@ sub available_dbs {
 # Private Methods
 
 sub _canonicalise_file {
-    my ($self, $file) = @_;
+    my ($self, $file, $table_list) = @_;
 
     $self->{_source}{file} = $file;
     debug(2,"fetching table defs from file $file");
@@ -238,33 +238,37 @@ sub _canonicalise_file {
   
     my $args = $self->{_source}{auth};
     my $fh = IO::File->new("| mysql $args") or die "Couldn't execute 'mysql$args': $!\n";
-    print $fh "\nCREATE DATABASE \`$temp_db\`;\nUSE \`$temp_db\`;\n";
-    print $fh $defs;
-    $fh->close;
+    my $sql = "\nCREATE DATABASE \`$temp_db\`;\nUSE \`$temp_db\`;\nSET foreign_key_checks = 0;\n$defs";
+    print $fh $sql;
+    my $result = $fh->close;
 
     # ... and then retrieve defs from mysqldump.  Hence we've used
     # MySQL to massage the defs file into canonical form.
-    $self->_get_defs($temp_db);
+    $self->_get_defs($temp_db, $table_list);
 
     debug(3,"dropping temporary database $temp_db");
     $fh = IO::File->new("| mysql $args") or die "Couldn't execute 'mysql$args': $!\n";
     print $fh "DROP DATABASE \`$temp_db\`;\n";
     $fh->close;
+
+	die "Couldn't execute mysql command:[$args] '$sql'\n" unless ($result);
 }
 
 sub _read_db {
-    my ($self, $db) = @_;
+    my ($self, $db, $table_list) = @_;
     $self->{_source}{db} = $db;
-    debug(1, "fetching table defs from db $db");
-    $self->_get_defs($db);
+    debug(1, "fetching ". (($table_list) ? $table_list : "all") . " table defs from db $db");
+    $self->_get_defs($db, $table_list);
 }
 
 sub _get_defs {
-    my ($self, $db) = @_;
+    my ($self, $db, $table_list) = @_;
+
+	$table_list =~ s/,/ /g;
 
     my $args = $self->{_source}{auth};
     my $start_time = time();
-    my $fh = IO::File->new("mysqldump -d -q --single-transaction $args $db 2>&1 |")
+    my $fh = IO::File->new("mysqldump -d -q --single-transaction $args $db $table_list 2>&1 |")
         or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
     debug(2, "running mysqldump -d $args $db");
     my $defs = $self->{_defs} = [ <$fh> ];
@@ -303,6 +307,7 @@ sub _parse_defs {
     $self->{_views} = [];
     for my $table (@tables) {
         debug(1, "  table def [$table]");
+		next unless $table;
         if($table =~ /create\s+table/i) {
             my $obj = MySQL::Diff::Table->new(source => $self->{_source}, def => $table);
             $self->{_by_name}{$obj->name()} = $obj;

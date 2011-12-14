@@ -23,7 +23,7 @@ the second.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.45';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -654,6 +654,7 @@ sub _load_database {
 
     debug(1, "Load database: parsing arg $authnum: '$arg'\n");
 
+    my $table_list = $self->{opts}{'tables'} || "";
     my %auth;
     for my $auth (qw/dbh host port user password socket/) {
         $auth{$auth} = $self->{opts}{"$auth$authnum"} || $self->{opts}{$auth};
@@ -661,7 +662,7 @@ sub _load_database {
     }
 
     if ($arg =~ /^db:(.*)/) {
-        return MySQL::Diff::Database->new(db => $1, auth => \%auth);
+        return MySQL::Diff::Database->new(db => $1, table_list => $table_list, auth => \%auth);
     }
 
     if ($self->{opts}{"dbh"}              ||
@@ -670,18 +671,18 @@ sub _load_database {
         $self->{opts}{"user$authnum"}     ||
         $self->{opts}{"password$authnum"} ||
         $self->{opts}{"socket$authnum"}) {
-        return MySQL::Diff::Database->new(db => $arg, auth => \%auth);
+        return MySQL::Diff::Database->new(db => $arg, table_list => $table_list, auth => \%auth);
     }
 
     if (-f $arg) {
-        return MySQL::Diff::Database->new(file => $arg, auth => \%auth);
+        return MySQL::Diff::Database->new(file => $arg, table_list => $table_list, auth => \%auth);
     }
 
     my %dbs = MySQL::Diff::Database::available_dbs(%auth);
     debug(1, "  available databases: ", (join ', ', keys %dbs), "\n");
 
     if ($dbs{$arg}) {
-        return MySQL::Diff::Database->new(db => $arg, auth => \%auth);
+        return MySQL::Diff::Database->new(db => $arg, table_list => $table_list, auth => \%auth);
     }
 
     warn "'$arg' is not a valid file or database.\n";
