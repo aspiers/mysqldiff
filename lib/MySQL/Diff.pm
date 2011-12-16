@@ -312,6 +312,7 @@ EOF
 
 sub _diff_tables {
     my $self = shift;
+    $self->{added_pk} = 0;
     my @changes = $self->_diff_fields(@_);
     push @changes, $self->_diff_indices(@_);
     push @changes, $self->_diff_primary_key(@_);
@@ -380,9 +381,14 @@ sub _diff_fields {
         for my $field (keys %$fields2) {
             unless($fields1 && $fields1->{$field}) {
                 debug(3,"field '$field' added");
+                my $pk = '';
+                if ($table2->isa_primary($field)) {
+                        $pk = ' PRIMARY KEY';
+                        $self->{added_pk} = 1;
+                }
                 my $change = '';
                 $change = "-- $name1\n" unless !$self->{opts}{'list-tables'};
-                $change .= "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field};\n";
+                $change .= "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field}$pk;\n";
                 my $weight = 5;
                 if ($fields2->{$field} =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
                         $weight = 1;
@@ -497,6 +503,9 @@ sub _diff_primary_key {
 
     if (! $primary1 && $primary2) {
         debug(3,"primary key '$primary2' added");
+        if ($self->{added_pk}) {
+                return ();
+        }
         my $changes = '';
         $changes .= "-- $name1\n" unless !$self->{opts}{'list-tables'};
         $changes .= "ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
