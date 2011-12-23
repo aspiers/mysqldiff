@@ -163,33 +163,35 @@ sub diff {
         my $name = $view1->name();
         $self->{'used_tables'}{$name} = 1;
         debug(1, "looking at view '$name' in first database");
-        if (my $view2 = $self->db2->view_by_name($name)) {
-            debug(1, "Comparing views called '$name'");
-            my $f1 = $view1->fields();
-            my $f2 = $view2->fields();
-            my $sel1 = $view1->select();
-            my $sel2 = $view2->select();
-            my $opts1 = $view1->options();
-            my $opts2 = $view2->options();
-            if ( ($f1 ne $f2) || 
-                 ($sel1 ne $sel2) || 
-                 ($opts1->{'security'} ne $opts2->{'security'}) || 
-                 ($opts1->{'trail'} ne $opts2->{'trail'}) || 
-                 ($opts1->{'algorithm'} ne $opts2->{'algorithm'})
-               ) {
-                my $change = '';
-                $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
-                $change .= "ALTER ALGORITHM=$opts2->{'algorithm'} DEFINER=CURRENT_USER SQL SECURITY $opts2->{'security'} VIEW $name $f2 AS ($sel2) $opts2->{'trail'}";
-                push @changes, [$change, {'k' => 5}]                 
-                    unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
-            }
-        } else {
-            debug(1, "view '$name' dropped");
-            my $change = '';
-            $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
-            $change .= "DROP VIEW $name;\n\n";
-            push @changes, [$change, {'k' => 5}]                 
-                 unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
+        if (!$self->{opts}{'refs'}) {
+                if (my $view2 = $self->db2->view_by_name($name)) {
+                    debug(1, "Comparing views called '$name'");
+                    my $f1 = $view1->fields();
+                    my $f2 = $view2->fields();
+                    my $sel1 = $view1->select();
+                    my $sel2 = $view2->select();
+                    my $opts1 = $view1->options();
+                    my $opts2 = $view2->options();
+                    if ( ($f1 ne $f2) || 
+                         ($sel1 ne $sel2) || 
+                         ($opts1->{'security'} ne $opts2->{'security'}) || 
+                         ($opts1->{'trail'} ne $opts2->{'trail'}) || 
+                         ($opts1->{'algorithm'} ne $opts2->{'algorithm'})
+                       ) {
+                        my $change = '';
+                        $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                        $change .= "ALTER ALGORITHM=$opts2->{'algorithm'} DEFINER=CURRENT_USER SQL SECURITY $opts2->{'security'} VIEW $name $f2 AS ($sel2) $opts2->{'trail'}";
+                        push @changes, [$change, {'k' => 5}]                 
+                            unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
+                    }
+                } else {
+                    debug(1, "view '$name' dropped");
+                    my $change = '';
+                    $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                    $change .= "DROP VIEW $name;\n\n";
+                    push @changes, [$change, {'k' => 5}]                 
+                         unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
+                }
         }
     }
 
