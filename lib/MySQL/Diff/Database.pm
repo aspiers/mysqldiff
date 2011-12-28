@@ -38,6 +38,7 @@ use IO::File;
 use MySQL::Diff::Utils qw(debug get_save_quotes);
 use MySQL::Diff::Table;
 use MySQL::Diff::View;
+use MySQL::Diff::Routine;
 
 # ------------------------------------------------------------------------------
 
@@ -264,7 +265,7 @@ sub _get_defs {
 
     my $args = $self->{_source}{auth};
     my $start_time = time();
-    my $fh = IO::File->new("mysqldump -d -q --single-transaction $args $db 2>&1 |")
+    my $fh = IO::File->new("mysqldump -d -q --single-transaction --routines $args $db 2>&1 |")
         or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
     debug(2, "running mysqldump -d $args $db");
     my $defs = $self->{_defs} = [ <$fh> ];
@@ -294,11 +295,13 @@ sub _parse_defs {
     #warn "DEF1:\n", $defs;
     $defs =~ s/(\#|--).*?\n//g; # delete singleline comments
     $defs =~ s/.*?SET\s+.*?;\s*//ig; #delete SETs
-    $defs =~ s/\/\*[^\/\*]*?\!\d+\s+([^\/\*]*?)\*\/\s*/\n$1/gs; # get content from executable comments
-    $defs =~ s/\/\*[^\/\*]*?\*\/\s*//gs; #delete all multiline comments
+    #$defs =~ s/\/\*[^\/\*]*?\!\d+\s+([^\/\*]*?)\*\//\n$1/gs; 
+    $defs =~ s/\/\*\!\d+\s+(.*?)\*\//\n$1/gs; # get content from executable comments
+    #$defs =~ s/\/\*[^\/\*]*?\*\/\s*//gs; 
+    $defs =~ s/\/\*.*?\*\/\s*//gs; #delete all multiline comments
     $defs =~ s/DELIMITER\s+.*?\s//ig;
     #warn "DEF2:\n", $defs;
-    my @tables = split /(?=^\s*(?:create|alter|drop)\s+(?:table|.*?view)\s+)/ims, $defs;
+    my @tables = split /(?=^\s*(?:create|alter|drop)\s+(?:table|.*?view|.*?function|.*?procedure|.*?trigger)\s+)/ims, $defs;
     $self->{_tables} = [];
     $self->{_views} = [];
     for my $table (@tables) {
@@ -313,7 +316,10 @@ sub _parse_defs {
             if ($self->{_by_name}{$obj->name()}) {
                 delete($self->{_by_name}{$obj->name()});
             }
-        } 
+        }
+        elsif ($table =~ /create\s+.*?\s+(trigger|function|procedure)/is) {
+            my $obj = MySQL::Diff::Routine->new(source => $self->{_source}, def => $table);
+        }
     }
     for my $t (keys %{$self->{_by_name}}) {
         push @{$self->{_tables}}, $self->{_by_name}{$t};
