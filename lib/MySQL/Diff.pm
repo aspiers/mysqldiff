@@ -180,7 +180,7 @@ sub diff {
                        ) {
                         my $change = '';
                         $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
-                        $change .= "ALTER ALGORITHM=$opts2->{'algorithm'} DEFINER=CURRENT_USER SQL SECURITY $opts2->{'security'} VIEW $name $f2 AS ($sel2) $opts2->{'trail'}";
+                        $change .= "ALTER ALGORITHM=$opts2->{'algorithm'} DEFINER=CURRENT_USER SQL SECURITY $opts2->{'security'} VIEW $name $f2 AS ($sel2) $opts2->{'trail'};";
                         push @changes, [$change, {'k' => 5}]                 
                             unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
                     }
@@ -192,6 +192,41 @@ sub diff {
                     push @changes, [$change, {'k' => 5}]                 
                          unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
                 }
+        }
+    }
+
+    for my $routine1 ($self->db1->routines()) {
+        my $name = $routine1->name();
+        my $r_type = $routine1->type();
+        debug(1, "loooking at $r_type '$name' in first database");
+        if (!$self->{opts}{'refs'}) {
+            if (my $routine2 = $self->db2->routine_by_name($name, $r_type)) {
+                debug(1, "Comparing ". $r_type . "s called '$name'");
+                my $r_opts1 = $routine1->options();
+                my $r_opts2 = $routine2->options();
+                my $r_body1 = $routine1->body();
+                my $r_body2 = $routine2->body();
+                my $r_pars1 = $routine1->params();
+                my $r_pars2 = $routine2->params();
+                if ( ($r_opts1 ne $r_opts2) || ($r_body1 ne $r_body2) || ($r_pars1 ne $r_pars2) ) {
+                    my $change = '';
+                    $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                    $change .= "DROP $r_type $name;\n";
+                    $change .= "DELIMITER ;;\n";
+                    $change .= $routine2->def() . "\n";
+                    #$change .= "CREATE $r_type $r_opts2 $r_body2";
+                    $change .= "DELIMITER ;\n";
+                    push @changes, [$change, {'k' => 1}]                 
+                            unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
+                }
+            } else {
+                debug(1, "$r_type '$name' dropped;");
+                my $change = '';
+                $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                $change .= "DROP $r_type $name;\n";
+                push @changes, [$change, {'k' => 5}]                 
+                         unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
+            }
         }
     }
 
@@ -230,6 +265,20 @@ sub diff {
                 $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
                 $change .= $view2->def() . "\n";
                 push @changes, [$change, {'k' => 5}]
+                    unless $self->{opts}{'only-both'};
+            }
+        }
+        for my $routine2 ($self->db2->routines()) {
+            my $name = $routine2->name();
+            my $r_type = $routine2->type();
+            debug(1, "looking at $r_type '$name' in second database");
+            if (!$self->db1->routine_by_name($name, $r_type)) {
+                my $change = '';
+                $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                $change .= "DELIMITER ;;\n";
+                $change .= $change .= $routine2->def(). "\n";
+                $change .= "DELIMITER ;\n";
+                push @changes, [$change, {'k' => 1}]
                     unless $self->{opts}{'only-both'};
             }
         }

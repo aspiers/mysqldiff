@@ -158,6 +158,16 @@ sub views {
     return @{$self->{_views}};
 }
 
+=item * routines()
+
+Returns a list of routines for the current database
+
+=cut
+sub routines {
+    my $self = shift;
+    return @{$self->{_routines}};
+}
+
 =item * table_by_name( $name )
 
 Returns the table definition (see L<MySQL::Diff::Table>) for the given table.
@@ -178,6 +188,17 @@ Returns the view definitions (see L<MySQL::Diff:View>) for the given view
 sub view_by_name {
     my ($self,$name) = @_;
     return $self->{v_by_name}{$name};
+}
+
+=item * routine_by_name( $name )
+
+Returns the routine definitions (see L<MySQL::Diff:Routine>) for the given routine name
+
+=cut
+
+sub routine_by_name {
+    my ($self,$name,$type) = @_;
+    return $self->{r_by_name}{$name}{$type};
 }
 
 =back
@@ -294,7 +315,8 @@ sub _parse_defs {
     }
     #warn "DEF1:\n", $defs;
     $defs =~ s/(\#|--).*?\n//g; # delete singleline comments
-    $defs =~ s/.*?SET\s+.*?;\s*//ig; #delete SETs
+    #$defs =~ s/.*?SET\s+([^;]*?);{1}\s+//ig; #delete SETs, if they not are in routines
+    $defs =~ s/\/\*\!\d+\s+SET\s+.*?;\s*//ig;
     #$defs =~ s/\/\*[^\/\*]*?\!\d+\s+([^\/\*]*?)\*\//\n$1/gs; 
     $defs =~ s/\/\*\!\d+\s+(.*?)\*\//\n$1/gs; # get content from executable comments
     #$defs =~ s/\/\*[^\/\*]*?\*\/\s*//gs; 
@@ -304,6 +326,7 @@ sub _parse_defs {
     my @tables = split /(?=^\s*(?:create|alter|drop)\s+(?:table|.*?view|.*?function|.*?procedure|.*?trigger)\s+)/ims, $defs;
     $self->{_tables} = [];
     $self->{_views} = [];
+    $self->{_routines} = [];
     for my $table (@tables) {
         debug(1, "  table def [$table]");
         if($table =~ /create\s+table/i) {
@@ -319,6 +342,8 @@ sub _parse_defs {
         }
         elsif ($table =~ /create\s+.*?\s+(trigger|function|procedure)/is) {
             my $obj = MySQL::Diff::Routine->new(source => $self->{_source}, def => $table);
+            $self->{r_by_name}{$obj->type()}{$obj->name()} = $obj;
+            push @{$self->{_routines}}, $obj;
         }
     }
     for my $t (keys %{$self->{_by_name}}) {

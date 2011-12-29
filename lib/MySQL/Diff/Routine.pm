@@ -74,6 +74,18 @@ Returns the name of the current routine.
 
 Returns the additional options added to the routine definition.
 
+=item * body
+
+Return routine's body
+
+=item * type
+
+Return routine's type (trigger, function or procedure)
+
+=item * params
+
+Return routine's parameters list
+
 =back
 
 =cut
@@ -81,10 +93,30 @@ Returns the additional options added to the routine definition.
 sub def             { my $self = shift; return $self->{def};            }
 sub name            { my $self = shift; return $self->{name};           }
 sub options         { my $self = shift; return $self->{options};        }
+sub body            { my $self = shift; return $self->{body};           }
+sub type            { my $self = shift; return $self->{type};           }
+sub params          { my $self = shift; return $self->{params};         }
 
 
 # ------------------------------------------------------------------------------
 # Private Methods
+
+sub _str_replace {
+    my $self = shift;
+    my $replace_this = shift;
+    my $with_this  = shift; 
+    my $string   = shift;
+    my $length = length($string);
+    my $target = length($replace_this);
+    
+    for(my $i=0; $i<$length - $target + 1; $i++) {
+        if(substr($string,$i,$target) eq $replace_this) {
+            $string = substr($string,0,$i) . $with_this . substr($string,$i+$target);
+            return $string; #Comment this if you what a global replace
+        }
+    }
+    return $string;
+}
 
 sub _parse {
 	my $self = shift;
@@ -98,7 +130,9 @@ sub _parse {
     s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
     if ($self->{def} =~ /^CREATE(?:\s+DEFINER=(.*?))?\s+(TRIGGER|PROCEDURE|FUNCTION)\s+(.*?);;$/gis) {
         my ($definer, $type, $desc) = ($1, $2, $3);
-        warn "$type desc: ", $desc;
+        #warn "$type desc: ", $desc;
+        $self->{type} = $type;
+        my $params = '';
         if ($type =~ /TRIGGER/i) {
             if ($desc =~ /(.*?)\s+(.*?)\s+FOR\s+EACH\s+ROW\s+(.*)/gis) {
                 $self->{options} = $2;
@@ -112,7 +146,6 @@ sub _parse {
             my $other_part = '';
             my $pos = 0;
             foreach my $char (@chars) {
-                $name .= $char;
                 if ($char eq '(') {
                     if ($brackets == -1) {
                         $brackets = 1;
@@ -123,6 +156,11 @@ sub _parse {
                 if ($char eq ')') {
                     $brackets--;
                 }
+                if ($brackets == -1) {
+                    $name .= $char;
+                } else {
+                    $params .= $char;
+                }
                 $pos++;
                 if ($brackets == 0) {
                     $other_part = substr($desc, $pos);
@@ -130,18 +168,20 @@ sub _parse {
                 }
             }
             $self->{name} = $name;
-            my @opts_parts = ($other_part =~ /(\s+RETURNS\s+.*?\s+|\s+COMMENT\s+'.*?'|\s+LANGUAGE SQL|\s+(CONTAINS SQL|NO SQL|READS SQL DATA|MODIFIES SQL DATA)|\s+SQL\s+SECURITY\s+DEFINER|INVOKER)/gis);
+            my @opts_parts = ($other_part =~ /(\s+RETURNS\s+.*?\s+|\s+COMMENT\s+'.*?'|\s+LANGUAGE\s+SQL|\s+CONTAINS\s+SQL|NO\s+SQL|READS\s+SQL\s+DATA|MODIFIES\s+SQL\s+DATA|\s+SQL\s+SECURITY\s+DEFINER|INVOKER|\s+(?:NOT\s+)DETERMINISTIC)/gis);
             $self->{options} = join '', @opts_parts;
-            $desc =~ s/$self->{options}//;
+            $desc = $self->_str_replace($name, '', $desc);
+            $desc = $self->_str_replace($params, '', $desc);
+            $desc = $self->_str_replace($self->{options}, '', $desc);
             $self->{body} = $desc;
-            
         }
         $self->{def} =~ s/$definer/CURRENT_USER/s;
-        #warn "Now def:\n", $self->{def};
-        warn "Name: ", $self->{name};
-        warn "Options: ", $self->{options};
-        warn "Body: ", $self->{body};
-        warn "_______\n";
+        $self->{params} = $params;
+        #warn "Definition: ", $self->{def};
+        #warn "Name: ", $self->{name};
+        #warn "Params: ", $params;
+        #warn "Options: ", $self->{options};
+        #warn "Body: ", $self->{body};
     }
 }
 

@@ -253,7 +253,7 @@ sub _parse {
         $self->{options} = $table_end;
         $self->{options} =~ s/;//gs;
     } else {
-        warn "table '$self->{name}' didn't have terminator\n"
+        warn "table '$self->{name}' didn't have terminator: \n", $self->{def} 
             unless defined $self->{options};
     }
 
