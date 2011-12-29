@@ -276,7 +276,7 @@ sub diff {
                 my $change = '';
                 $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
                 $change .= "DELIMITER ;;\n";
-                $change .= $change .= $routine2->def(). "\n";
+                $change .= $routine2->def(). "\n";
                 $change .= "DELIMITER ;\n";
                 push @changes, [$change, {'k' => 1}]
                     unless $self->{opts}{'only-both'};

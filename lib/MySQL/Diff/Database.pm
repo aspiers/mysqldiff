@@ -286,7 +286,7 @@ sub _get_defs {
 
     my $args = $self->{_source}{auth};
     my $start_time = time();
-    my $fh = IO::File->new("mysqldump -d -q --single-transaction --routines $args $db 2>&1 |")
+    my $fh = IO::File->new("mysqldump -d -q --single-transaction --routines --force $args $db 2>&1 |")
         or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
     debug(2, "running mysqldump -d $args $db");
     my $defs = $self->{_defs} = [ <$fh> ];
