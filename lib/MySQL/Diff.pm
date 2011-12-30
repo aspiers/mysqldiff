@@ -291,7 +291,7 @@ sub diff {
         if (!$self->{opts}{'list-tables'} && !$self->{opts}{'refs'}) {
             $out .= $self->_diff_banner();
         }
-        my @sorted = sort { return $b->[1]->{'k'} cmp $a->[1]->{'k'} } @changes;
+        my @sorted = sort { warn "bk: $b->[1]->{'k'} ak: $a->[1]->{'k'}"; return $b->[1]->{'k'} cmp $a->[1]->{'k'} } @changes;
         my $column_index = 0;
         my $line = join '', map $_->[$column_index], @sorted;
         $out .= $line;
@@ -364,6 +364,8 @@ EOF
 sub _diff_tables {
     my $self = shift;
     $self->{added_pk} = 0;
+    $self->{dropped_columns} = {};
+    $self->{fk_for_pk} = {};
     my @changes = $self->_diff_fields(@_);
     push @changes, $self->_diff_indices(@_);
     push @changes, $self->_diff_primary_key(@_);
@@ -389,6 +391,9 @@ sub _diff_fields {
     if($fields1) {
         for my $field (keys %$fields1) {
             debug(3,"table1 had field '$field'");
+            if ($table1->isa_fk($field1)) {
+                $self->{fk_for_pk}{"($field1)"} = 1;
+            }
             my $f1 = $fields1->{$field};
             my $f2 = $fields2->{$field};
             if ($fields2 && $f2) {
@@ -423,6 +428,7 @@ sub _diff_fields {
                 $change .= "ALTER TABLE $name1 DROP COLUMN $field;";
                 $change .= " # was $fields1->{$field}" unless $self->{opts}{'no-old-defs'};
                 $change .= "\n";
+                $self->{dropped_columns}{"($field)"} = 1;
                 push @changes, [$change, {'k' => 1}]; # column must be dropped last
             }
         }
@@ -567,13 +573,27 @@ sub _diff_primary_key {
         debug(3,"primary key changed");
         my $auto = _check_for_auto_col($table2, $primary1) || '';
         my $changes = '';
+        my $k = 3;
         $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
         $changes .= $auto ? _index_auto_col($table2, $auto, $self->{opts}{'no-old-defs'}) : '';
+        if ($self->{fk_for_pk}{$primary1}) {
+            $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY ;";
+        }
         $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
         $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
-        $changes .= "\nALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
+        if ($self->{added_pk}) {
+                $k = 8;
+                $changes .= "\n";
+        } else {
+            $changes .= "\nALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
+            if ($self->{dropped_columns}{$primary1}) {
+                $k = 0;
+                warn "dropped columns!";
+            }
+        }
+        warn "k = ", $k;
         $changes .= "ALTER TABLE $name1 DROP INDEX $auto;\n"    if($auto);
-        push @changes, [$changes, {'k' => 3}];
+        push @changes, [$changes, {'k' => $k}];
     }
 
     return @changes;

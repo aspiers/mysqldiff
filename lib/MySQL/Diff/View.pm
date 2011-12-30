@@ -108,12 +108,11 @@ sub select          { my $self = shift; return $self->{select};         }
 sub _parse {
     my $self = shift;
     debug(1,"parsing view def '$self->{def}'");
-    #warn "View def:\n", $self->{def};
     my $c = get_save_quotes();
     if (!$c) {
         $self->{def} =~ s/`([^`]+)`/$1/gs; # later versions quote names
     }
-    $self->{def} =~ s/\n+/\n/;
+    $self->{def} =~ s/\n+/\n/gs;
     s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
     if ($self->{def} =~ /^CREATE(?:\s+ALGORITHM=(.*?))?(?:\s+DEFINER=(.*?))?(?:\s+SQL\s+SECURITY\s+(DEFINER|INVOKER))?\s+VIEW\s+(.*?)\s+(\(.*?\)\s+)?AS\s+\(?(.*?)\)?\s+(?:WITH\s+(.*?))?;$/gis) {
         my ($alg, $definer, $security, $view_name, $view_def, $select, $options) = ($1, $2, $3, $4, $5, $6, $7);
@@ -140,7 +139,6 @@ sub _parse {
           $self->{options}{'trail'} = $options;
         }
         $self->{def} =~ s/$definer/CURRENT_USER/s;
-        #warn "Now def:\n", $self->{def};
     }
         
 }
