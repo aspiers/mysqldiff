@@ -135,11 +135,13 @@ sub name            { my $self = shift; return $self->{name};           }
 sub field           { my $self = shift; return $self->{fields}{$_[0]};  }
 sub fields          { my $self = shift; return $self->{fields};         }
 sub primary_key     { my $self = shift; return $self->{primary_key};    }
+sub primary_parts   { my $self = shift; return $self->{primary};        }
 sub indices         { my $self = shift; return $self->{indices};        }
 sub indices_opts    { my $self = shift; return $self->{indices_opts};   }
 sub options         { my $self = shift; return $self->{options};        }
 sub foreign_key     { my $self = shift; return $self->{foreign_key};    }
 sub fk_tables       { my $self = shift; return $self->{fk_tables};      }
+sub get_fk_by_col   { my $self = shift; return $self->{fk_by_column}{$_[0]}; }
 
 sub isa_field       { my $self = shift; return $_[0] && $self->{fields}{$_[0]}   ? 1 : 0;       }
 sub isa_primary     { my $self = shift; return $_[0] && $self->{primary}{$_[0]}  ? 1 : 0;       }
@@ -198,6 +200,8 @@ sub _parse {
             debug(1,"got foreign key $key with column name: $column_name, table name: $tbl_name, options: $opts");
             my $val = $column_name.' REFERENCES '.$tbl_name.' '.$opts;
             $self->{foreign_key}{$key} = $val;
+            $column_name =~ s/\((.*?)\)/$1/;
+            $self->{fk_by_column}{$_}{$key} = $val for(split(/,/, $column_name));
             $self->{fk_tables}{$tbl_name} = 1;
             next;
         }

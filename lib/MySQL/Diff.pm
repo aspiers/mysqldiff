@@ -291,7 +291,7 @@ sub diff {
         if (!$self->{opts}{'list-tables'} && !$self->{opts}{'refs'}) {
             $out .= $self->_diff_banner();
         }
-        my @sorted = sort { warn "bk: $b->[1]->{'k'} ak: $a->[1]->{'k'}"; return $b->[1]->{'k'} cmp $a->[1]->{'k'} } @changes;
+        my @sorted = sort { return $b->[1]->{'k'} cmp $a->[1]->{'k'} } @changes;
         my $column_index = 0;
         my $line = join '', map $_->[$column_index], @sorted;
         $out .= $line;
@@ -391,9 +391,6 @@ sub _diff_fields {
     if($fields1) {
         for my $field (keys %$fields1) {
             debug(3,"table1 had field '$field'");
-            if ($table1->isa_fk($field1)) {
-                $self->{fk_for_pk}{"($field1)"} = 1;
-            }
             my $f1 = $fields1->{$field};
             my $f2 = $fields2->{$field};
             if ($fields2 && $f2) {
@@ -428,7 +425,7 @@ sub _diff_fields {
                 $change .= "ALTER TABLE $name1 DROP COLUMN $field;";
                 $change .= " # was $fields1->{$field}" unless $self->{opts}{'no-old-defs'};
                 $change .= "\n";
-                $self->{dropped_columns}{"($field)"} = 1;
+                $self->{dropped_columns}{$field} = 1;
                 push @changes, [$change, {'k' => 1}]; # column must be dropped last
             }
         }
@@ -440,7 +437,14 @@ sub _diff_fields {
                 debug(3,"field '$field' added");
                 my $pk = '';
                 if ($table2->isa_primary($field)) {
-                        $pk = ' PRIMARY KEY';
+                        my $pp = $table2->primary_parts();
+                        my $size = scalar keys %$pp;
+                        if ($size == 1) {
+                            $pk = ' PRIMARY KEY';
+                        } else {
+                            my $p = $table2->primary_key();
+                            $pk = ", ADD PRIMARY KEY $p";
+                        }
                         $self->{added_pk} = 1;
                 }
                 my $change = '';
@@ -572,26 +576,55 @@ sub _diff_primary_key {
     if ($primary1 ne $primary2) {
         debug(3,"primary key changed");
         my $auto = _check_for_auto_col($table2, $primary1) || '';
+        warn  "Auto: ", $auto;
         my $changes = '';
         my $k = 3;
         $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
         $changes .= $auto ? _index_auto_col($table2, $auto, $self->{opts}{'no-old-defs'}) : '';
-        if ($self->{fk_for_pk}{$primary1}) {
-            $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY ;";
-        }
-        $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
-        $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
-        if ($self->{added_pk}) {
-                $k = 8;
-                $changes .= "\n";
-        } else {
-            $changes .= "\nALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
-            if ($self->{dropped_columns}{$primary1}) {
-                $k = 0;
-                warn "dropped columns!";
+        my $pks = $table1->primary_parts();
+        my $pk_ops = ''; 
+        my $fks;
+        for my $pk (keys %$pks) {
+            warn "PK: ", $pk;
+            if ($self->{dropped_columns}{$pk}) {
+                $pk_ops = $pk;
+                warn "Saved PK: ", $pk;
+                last;
             }
         }
-        warn "k = ", $k;
+        if ($pk_ops) {
+            # If PK has foreign keys they must be dropped first and then recreated 
+            $fks = $table1->get_fk_by_col($pk_ops);
+            if ($fks) {
+                for my $fk (keys %$fks) {
+                    $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;\n";
+                }
+            }
+        }
+        # If PK's column was dropped, we mustn't drop itself
+        if (!$pk_ops) {
+            $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
+            $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
+            $changes .= "\n";
+        }
+        # If PK's column was added, we mustn't add itself
+        if ($self->{added_pk}) {
+            $k = 8; # In this case we must to do all work before column will be added
+        } else {
+            $changes .= "ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n"; 
+            if ($pk_ops) {
+                $k = 0; # In this case we must to do all work in the final
+                warn "dropped column $pk_ops!";
+            }
+        }
+        if ($pk_ops) {
+            if ($fks) {
+                for my $fk (keys %$fks) {
+                    $changes .= "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks->{$fk};\n";
+                }
+            }
+        }
+        
         $changes .= "ALTER TABLE $name1 DROP INDEX $auto;\n"    if($auto);
         push @changes, [$changes, {'k' => $k}];
     }
@@ -627,7 +660,7 @@ sub _diff_foreign_key {
                     my $changes = '';
                     $changes = "-- $name1$additional_tables\n" unless !$self->{opts}{'list-tables'};
                     $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
-                    $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
+                    $changes .= " # was CONSTRAINT $fk FOREIGN KEY $fks1->{$fk}"
                         unless $self->{opts}{'no-old-defs'};
                     $changes .= "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";                 
                     push @changes, [$changes, {'k' => 1}]; # ADD/CHANGE FK LAST
@@ -637,7 +670,7 @@ sub _diff_foreign_key {
                 my $changes = '';
                 $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
                 $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
-                $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
+                $changes .= " # was CONSTRAINT $fk FOREIGN KEY $fks1->{$fk}"
                         unless $self->{opts}{'no-old-defs'};
                 $changes .= "\n";
                 push @changes, [$changes, {'k' => 5}]; # DROP FK FIRST
