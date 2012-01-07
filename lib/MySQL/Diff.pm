@@ -127,7 +127,7 @@ sub diff {
         debug(1, "looking at table '$name' in first database");
         debug(6, "table 1 $name = ".Dumper($table1));
         if ($table_re && $name !~ $table_re) {
-            debug(2,"table '$name' didn't match /$table_re/; ignoring");
+            debug(5,"table '$name' didn't match /$table_re/; ignoring");
             next;
         }
         if (!$self->{opts}{'refs'}) {
@@ -236,7 +236,7 @@ sub diff {
             debug(1, "looking at table '$name' in second database");
             debug(6, "table 2 $name = ".Dumper($table2));
             if ($table_re && $name !~ $table_re) {
-                debug(2,"table '$name' matched $self->{opts}{'table-re'}; ignoring");
+                debug(5,"table '$name' matched $self->{opts}{'table-re'}; ignoring");
                 next;
             }
             if (! $self->db1->table_by_name($name) && ! $self->{'used_tables'}{$name}) {
@@ -314,8 +314,8 @@ sub _add_ref_tables {
             } else {
                 $table = $self->db1->table_by_name($name);
             }
-            debug(2, "Related table: '$name'");
             if ($table) {
+                debug(2, "Related table: '$name'");
                 my $additional_tables = '';
                 my $additional_fk_tables = $table->fk_tables();
                 if ($additional_fk_tables) {
@@ -390,7 +390,7 @@ sub _diff_fields {
   
     if($fields1) {
         for my $field (keys %$fields1) {
-            debug(3,"table1 had field '$field'");
+            debug(2, "$name1 had field '$field'");
             my $f1 = $fields1->{$field};
             my $f2 = $fields2->{$field};
             if ($fields2 && $f2) {
@@ -432,18 +432,30 @@ sub _diff_fields {
     }
 
     if($fields2) {
-        for my $field (keys %$fields2) {
+        my $pp = $table2->primary_parts();
+        my $size = scalar keys %$pp; 
+        my $diff_hash = {};
+        foreach (keys %$pp) {
+            $diff_hash->{$_} = $pp->{$_} if !exists($fields1->{$_});
+        }
+        my @keys = sort { ($fields2->{$a}=~/\s*AUTO_INCREMENT\s*/is) cmp ($fields2->{$b}=~/\s*AUTO_INCREMENT\s*/is)} keys %$fields2;
+        my @d_keys = sort { ($fields2->{$a}=~/\s*AUTO_INCREMENT\s*/is) cmp ($fields2->{$b}=~/\s*AUTO_INCREMENT\s*/is)} keys %$diff_hash;
+        my $f_last = (@d_keys)[-1];
+        debug(3, "Last PK: $f_last") if ($f_last);
+        for my $field (@keys) {
             unless($fields1 && $fields1->{$field}) {
-                debug(3,"field '$field' added");
+                debug(2,"field '$field' added");
                 my $pk = '';
                 if ($table2->isa_primary($field)) {
-                        my $pp = $table2->primary_parts();
-                        my $size = scalar keys %$pp;
                         if ($size == 1) {
+                            debug(3, "field $field is a primary key");
                             $pk = ' PRIMARY KEY';
                         } else {
-                            my $p = $table2->primary_key();
-                            $pk = ", ADD PRIMARY KEY $p";
+                            debug(3, "field $field is a part of composite primary key");
+                            if ($field eq $f_last) {
+                                my $p = $table2->primary_key();
+                                $pk = ", ADD PRIMARY KEY $p";
+                            }
                         }
                         $self->{added_pk} = 1;
                 }
@@ -485,7 +497,7 @@ sub _diff_indices {
             if ($opts2 && $opts2->{$index}) {
                 $ind2_opts = $opts2->{$index};
             }
-            debug(1,"$name1 had index '$index' with opts: $ind1_opts");
+            debug(2,"$name1 had index '$index' with opts: $ind1_opts");
             my $old_type = $table1->is_unique($index) ? 'UNIQUE' : 
                            $table1->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
 
@@ -496,7 +508,7 @@ sub _diff_indices {
                     ($ind1_opts ne $ind2_opts)
                   )
                 {
-                    debug(1,"index '$index' changed");
+                    debug(3,"index '$index' changed");
                     my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 
                                    $table2->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
                     my $changes = '';
@@ -524,7 +536,7 @@ sub _diff_indices {
     if($indices2) {
         for my $index (keys %$indices2) {
             next    if($indices1 && $indices1->{$index});
-            debug(1,"index '$index' added");
+            debug(3,"index '$index' added");
             my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 'INDEX';
             my $opts = '';
             if ($opts2->{$index}) {
@@ -553,7 +565,7 @@ sub _diff_primary_key {
     my @changes;
   
     if ($primary1 && ! $primary2) {
-        debug(3,"primary key '$primary1' dropped");
+        debug(2,"primary key '$primary1' dropped");
         my $changes = '';
         $changes .= "-- $name1\n" unless !$self->{opts}{'list-tables'};
         $changes = _index_auto_col($table2, $primary1, $self->{opts}{'no-old-defs'});
@@ -563,7 +575,7 @@ sub _diff_primary_key {
     }
 
     if (! $primary1 && $primary2) {
-        debug(3,"primary key '$primary2' added");
+        debug(2,"primary key '$primary2' added");
         if ($self->{added_pk}) {
                 return ();
         }
@@ -574,9 +586,9 @@ sub _diff_primary_key {
     }
 
     if ($primary1 ne $primary2) {
-        debug(3,"primary key changed");
+        debug(2,"primary key changed");
         my $auto = _check_for_auto_col($table2, $primary1) || '';
-        warn  "Auto: ", $auto;
+        debug(3, "Auto column $auto indexed") if ($auto);
         my $changes = '';
         my $k = 3;
         $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
@@ -585,10 +597,9 @@ sub _diff_primary_key {
         my $pk_ops = ''; 
         my $fks;
         for my $pk (keys %$pks) {
-            warn "PK: ", $pk;
             if ($self->{dropped_columns}{$pk}) {
                 $pk_ops = $pk;
-                warn "Saved PK: ", $pk;
+                debug(3, "PK's $pk column was dropped");
                 last;
             }
         }
@@ -597,12 +608,14 @@ sub _diff_primary_key {
             $fks = $table1->get_fk_by_col($pk_ops);
             if ($fks) {
                 for my $fk (keys %$fks) {
+                    debug(3, "FK for PK $pk_ops was dropped");
                     $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;\n";
                 }
             }
         }
         # If PK's column was dropped, we mustn't drop itself
         if (!$pk_ops) {
+            debug(3, "PK $primary1 was dropped");
             $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
             $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
             $changes .= "\n";
@@ -611,20 +624,21 @@ sub _diff_primary_key {
         if ($self->{added_pk}) {
             $k = 8; # In this case we must to do all work before column will be added
         } else {
+            debug(3, "PK $primary2 was added");
             $changes .= "ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n"; 
             if ($pk_ops) {
                 $k = 0; # In this case we must to do all work in the final
-                warn "dropped column $pk_ops!";
             }
         }
         if ($pk_ops) {
             if ($fks) {
                 for my $fk (keys %$fks) {
+                    debug(3, "FK for PK $pk_ops was recreated");
                     $changes .= "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks->{$fk};\n";
                 }
             }
         }
-        
+        debug(3, "Auto column's $auto index was dropped") if ($auto);
         $changes .= "ALTER TABLE $name1 DROP INDEX $auto;\n"    if($auto);
         push @changes, [$changes, {'k' => $k}];
     }
@@ -646,12 +660,12 @@ sub _diff_foreign_key {
   
     if($fks1) {
         for my $fk (keys %$fks1) {
-            debug(1,"$name1 has fk '$fk'");
+            debug(2,"$name1 has fk '$fk'");
 
             if ($fks2 && $fks2->{$fk}) {
                 if($fks1->{$fk} ne $fks2->{$fk})  
                 {
-                    debug(1,"foreign key '$fk' changed");
+                    debug(3,"foreign key '$fk' changed");
                     my $additional_tables = '';
                     my $additional_fk_tables = $table2->fk_tables();
                     if ($additional_fk_tables) {
@@ -666,7 +680,7 @@ sub _diff_foreign_key {
                     push @changes, [$changes, {'k' => 1}]; # ADD/CHANGE FK LAST
                 }
             } else {
-                debug(1,"foreign key '$fk' removed");
+                debug(3,"foreign key '$fk' removed");
                 my $changes = '';
                 $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
                 $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
@@ -681,7 +695,7 @@ sub _diff_foreign_key {
     if($fks2) {
         for my $fk (keys %$fks2) {
             next    if($fks1 && $fks1->{$fk});
-            debug(1, "foreign key '$fk' added");
+            debug(3, "foreign key '$fk' added");
             my $additional_tables = '';
             my $additional_fk_tables = $table2->fk_tables();
             if ($additional_fk_tables) {
@@ -751,6 +765,7 @@ sub _diff_options {
     }
 
     if ($options1 ne $options2) {
+        debug(2, "$name options was changed");
         my $change = '';
         $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
         $change .= "ALTER TABLE $name $options2;";

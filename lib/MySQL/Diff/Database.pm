@@ -246,13 +246,13 @@ sub _canonicalise_file {
     my ($self, $file) = @_;
 
     $self->{_source}{file} = $file;
-    debug(2,"fetching table defs from file $file");
+    debug(1,"fetching table defs from file $file");
 
     # FIXME: option to avoid create-and-dump bit
     # create a temporary database using defs from file ...
     # hopefully the temp db is unique!
     my $temp_db = sprintf "test_mysqldiff-temp-%d_%d_%d", time(), $$, rand();
-    debug(3,"creating temporary database $temp_db");
+    debug(1,"creating temporary database $temp_db");
   
     my $defs = read_file($file);
     die "$file contains dangerous command '$1'; aborting.\n"
@@ -268,7 +268,7 @@ sub _canonicalise_file {
     # MySQL to massage the defs file into canonical form.
     $self->_get_defs($temp_db);
 
-    debug(3,"dropping temporary database $temp_db");
+    debug(1,"dropping temporary database $temp_db");
     $fh = IO::File->new("| mysql $args") or die "Couldn't execute 'mysql$args': $!\n";
     print $fh "DROP DATABASE \`$temp_db\`;\n";
     $fh->close;
@@ -288,10 +288,10 @@ sub _get_defs {
     my $start_time = time();
     my $fh = IO::File->new("mysqldump -d -q --single-transaction --routines --force $args $db 2>&1 |")
         or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
-    debug(2, "running mysqldump -d $args $db");
+    debug(6, "running mysqldump -d $args $db");
     my $defs = $self->{_defs} = [ <$fh> ];
     $fh->close;
-    debug(1, "dump time: ".(time() - $start_time));
+    debug(6, "dump time: ".(time() - $start_time));
     if (grep /mysqldump: Got error: .*: Unknown database/, @$defs) {
         die <<EOF;
 Failed to create temporary database $db
@@ -307,7 +307,7 @@ sub _parse_defs {
 
     return if $self->{_tables};
 
-    debug(2, "parsing table defs");
+    debug(1, "parsing tables defs");
     my $defs = join '', @{$self->{_defs}};
     my $c = get_save_quotes();
     if (!$c) {
@@ -328,7 +328,7 @@ sub _parse_defs {
     $self->{_views} = [];
     $self->{_routines} = [];
     for my $table (@tables) {
-        debug(1, "  table def [$table]");
+        debug(5, "  table def [$table]");
         if($table =~ /create\s+table/i) {
             my $obj = MySQL::Diff::Table->new(source => $self->{_source}, def => $table);
             $self->{_by_name}{$obj->name()} = $obj;

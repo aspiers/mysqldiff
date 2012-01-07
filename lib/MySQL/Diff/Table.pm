@@ -63,7 +63,7 @@ sub new {
 
     $self->{$_} = $hash{$_} for(keys %hash);
 
-    debug(3,"\nconstructing new MySQL::Diff::Table");
+    debug(6,"\nconstructing new MySQL::Diff::Table");
     croak "MySQL::Diff::Table::new called without def params" unless $self->{def};
     $self->_parse;
     return $self;
@@ -155,7 +155,7 @@ sub is_fulltext     { my $self = shift; return $_[0] && $self->{fulltext}{$_[0]}
 
 sub _parse {
     my $self = shift;
-    debug(1,"parsing table def '$self->{def}'");
+    debug(5,"parsing table def '$self->{def}'");
     my $c = get_save_quotes();
     if (!$c) {
         $self->{def} =~ s/`([^`]+)`/$1/gs; # later versions quote names
@@ -166,7 +166,7 @@ sub _parse {
     my $name;
     if ($lines[0] =~ /^\s*create\s+table\s+(\S+)\s+\(\s*$/i) {
         $self->{name} = $1;
-        debug(3,"got table name '$self->{name}'");
+        debug(4,"got table name '$self->{name}'");
         shift @lines;
     } else {
         croak "couldn't figure out table name";
@@ -180,7 +180,7 @@ sub _parse {
         } else {
             s/^\s*(.*?)\s*$/$1/; # trim whitespaces 
         }
-        debug(1,"line: [$_]");
+        debug(5,"line: [$_]");
         if (/^PRIMARY\s+KEY\s+(.+)$/) {
             my $primary = $1;
             croak "two primary keys in table '$self->{name}': '$primary', '$self->{primary_key}'\n"
@@ -189,7 +189,7 @@ sub _parse {
             $self->{primary_key} = $primary;
             $primary =~ s/\((.*?)\)/$1/;
             $self->{primary}{$_} = 1    for(split(/,/, $primary));
-
+            
             next;
         }
         
@@ -197,7 +197,7 @@ sub _parse {
             my ($key, $column_name, $tbl_name, $opts) = ($1, $2, $3, $4);
             croak "foreign key '$key' duplicated in table '$name'\n"
                 if $self->{foreign_key}{$key};
-            debug(1,"got foreign key $key with column name: $column_name, table name: $tbl_name, options: $opts");
+            debug(4,"got foreign key $key with column name: $column_name, table name: $tbl_name, options: $opts");
             my $val = $column_name.' REFERENCES '.$tbl_name.' '.$opts;
             $self->{foreign_key}{$key} = $val;
             $column_name =~ s/\((.*?)\)/$1/;
@@ -217,7 +217,7 @@ sub _parse {
                 $self->{indices_opts}{$key} = $opts;
             }
             $self->{unique}{$key} = 1   if($type =~ /unique/i);
-            debug(1, "got ", defined $self->{unique}{$key} ? 'unique ' : '', "index key '$key': ($val)");
+            debug(4, "got ", defined $self->{unique}{$key} ? 'unique ' : '', "index key '$key': ($val)");
             next;
         }
 

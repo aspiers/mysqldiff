@@ -89,8 +89,11 @@ is equal to or lower than the current debug level.
                 return;
             }
         }
-        
-        print STDERR @_,"\n";
+        my $padding = '';
+        for (my $i = 0; $i < $level; $i++) {
+            $padding .= '    ';
+        }
+        print STDERR $padding,@_,"\n";
     }
     
     sub set_save_quotes {

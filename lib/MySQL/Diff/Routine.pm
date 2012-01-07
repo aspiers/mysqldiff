@@ -48,7 +48,7 @@ sub new {
 
     $self->{$_} = $hash{$_} for(keys %hash);
 
-    debug(3,"\nconstructing new MySQL::Diff::Routine");
+    debug(6,"\nconstructing new MySQL::Diff::Routine");
     croak "MySQL::Diff::Routine::new called without def params" unless $self->{def};
     $self->_parse;
     return $self;
@@ -120,8 +120,7 @@ sub _str_replace {
 
 sub _parse {
 	my $self = shift;
-    debug(1,"parsing routine def '$self->{def}'");
-    #warn "Routine def:\n", $self->{def};
+    debug(5,"parsing routine def '$self->{def}'");
     my $c = get_save_quotes();
     if (!$c) {
         $self->{def} =~ s/`([^`]+)`/$1/gs; # later versions quote names
@@ -177,11 +176,7 @@ sub _parse {
         }
         $self->{def} =~ s/$definer/CURRENT_USER/s;
         $self->{params} = $params;
-        #warn "Definition: ", $self->{def};
-        #warn "Name: ", $self->{name};
-        #warn "Params: ", $params;
-        #warn "Options: ", $self->{options};
-        #warn "Body: ", $self->{body};
+        debug(4, "Routine name: $self->{name}; type: $type");
     }
 }
 

@@ -57,7 +57,7 @@ sub new {
 
     $self->{$_} = $hash{$_} for(keys %hash);
 
-    debug(3,"\nconstructing new MySQL::Diff::View");
+    debug(6,"\nconstructing new MySQL::Diff::View");
     croak "MySQL::Diff::View::new called without def params" unless $self->{def};
     $self->_parse;
     return $self;
@@ -107,7 +107,7 @@ sub select          { my $self = shift; return $self->{select};         }
 
 sub _parse {
     my $self = shift;
-    debug(1,"parsing view def '$self->{def}'");
+    debug(5,"parsing view def '$self->{def}'");
     my $c = get_save_quotes();
     if (!$c) {
         $self->{def} =~ s/`([^`]+)`/$1/gs; # later versions quote names
@@ -139,6 +139,7 @@ sub _parse {
           $self->{options}{'trail'} = $options;
         }
         $self->{def} =~ s/$definer/CURRENT_USER/s;
+        debug(4, "View name: $view_name");
     }
         
 }
