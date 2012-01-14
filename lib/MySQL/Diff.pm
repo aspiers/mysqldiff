@@ -367,6 +367,7 @@ sub _diff_tables {
     $self->{added_pk} = 0;
     $self->{dropped_columns} = {};
     $self->{fk_for_pk} = {};
+    $self->{temporary_indexes} = {};
     my @changes = $self->_diff_fields(@_);
     push @changes, $self->_diff_indices(@_);
     push @changes, $self->_diff_primary_key(@_);
