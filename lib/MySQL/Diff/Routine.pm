@@ -127,7 +127,7 @@ sub _parse {
     }
     $self->{def} =~ s/\n+/\n/;
     s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
-    if ($self->{def} =~ /^CREATE(?:\s+DEFINER=(.*?))?\s+(TRIGGER|PROCEDURE|FUNCTION)\s+(.*?);;$/gis) {
+    if ($self->{def} =~ /^CREATE(?:\s+DEFINER=(.*?))?\s+(TRIGGER|PROCEDURE|FUNCTION)\s+(.*?)$/gis) {
         my ($definer, $type, $desc) = ($1, $2, $3);
         #warn "$type desc: ", $desc;
         $self->{type} = $type;

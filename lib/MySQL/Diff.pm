@@ -32,6 +32,7 @@ use MySQL::Diff::Database;
 use MySQL::Diff::Utils qw(debug debug_level debug_file set_save_quotes);
 
 use Data::Dumper;
+use Digest::MD5 qw(md5 md5_hex);
 
 # ------------------------------------------------------------------------------
 
@@ -213,7 +214,7 @@ sub diff {
                     $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
                     $change .= "DROP $r_type $name;\n";
                     $change .= "DELIMITER ;;\n";
-                    $change .= $routine2->def() . "\n";
+                    $change .= $routine2->def() . ";;\n";
                     #$change .= "CREATE $r_type $r_opts2 $r_body2";
                     $change .= "DELIMITER ;\n";
                     push @changes, [$change, {'k' => 1}]                 
@@ -276,7 +277,7 @@ sub diff {
                 my $change = '';
                 $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
                 $change .= "DELIMITER ;;\n";
-                $change .= $routine2->def(). "\n";
+                $change .= $routine2->def(). ";;\n";
                 $change .= "DELIMITER ;\n";
                 push @changes, [$change, {'k' => 1}]
                     unless $self->{opts}{'only-both'};
@@ -513,6 +514,18 @@ sub _diff_indices {
                                    $table2->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
                     my $changes = '';
                     $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                    my $index_parts = $table1->indices_parts($index);
+                    if ($index_parts) {
+                        for my $index_part (keys %$index_parts) {
+                            my $fks = $table1->get_fk_by_col($index_part);
+                            if ($fks) {
+                                my $temp_index_name = "temp_".md5_hex($index_part);
+                                debug(3, "Added temporary index $temp_index_name for INDEX's field $index_part because there is FKs for this field");
+                                $self->{temporary_indexes}{$temp_index_name} = 1;
+                                $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($index_part);\n";
+                            }
+                        }
+                    }
                     $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
                     $changes .= " # was $old_type ($indices1->{$index})$ind1_opts"
                         unless $self->{opts}{'no-old-defs'};
@@ -524,6 +537,18 @@ sub _diff_indices {
                 my $changes = '';
                 $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
                 $changes .= $auto ? _index_auto_col($table1, $indices1->{$index}, $self->{opts}{'no-old-defs'}) : '';
+                my $index_parts = $table1->indices_parts($index);
+                if ($index_parts) {
+                    for my $index_part (keys %$index_parts) {
+                        my $fks = $table1->get_fk_by_col($index_part);
+                        if ($fks) {
+                            my $temp_index_name = "temp_".md5_hex($index_part);
+                            debug(3, "Added temporary index $temp_index_name for INDEX's field $index_part because there is FKs for this field");
+                            $self->{temporary_indexes}{$temp_index_name} = 1;
+                            $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($index_part);\n";
+                        }
+                    }
+                }
                 $changes .= "ALTER TABLE $name1 DROP INDEX $index;";
                 $changes .= " # was $old_type ($indices1->{$index})$ind1_opts" 
                     unless $self->{opts}{'no-old-defs'};
@@ -594,25 +619,31 @@ sub _diff_primary_key {
         $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
         $changes .= $auto ? _index_auto_col($table2, $auto, $self->{opts}{'no-old-defs'}) : '';
         my $pks = $table1->primary_parts();
-        my $pk_ops = ''; 
+        my $pk_ops = 0; 
         my $fks;
         for my $pk (keys %$pks) {
             if ($self->{dropped_columns}{$pk}) {
-                $pk_ops = $pk;
                 debug(3, "PK's $pk column was dropped");
-                last;
             }
-        }
-        if ($pk_ops) {
-            # If PK has foreign keys they must be dropped first and then recreated 
-            $fks = $table1->get_fk_by_col($pk_ops);
+            $pk_ops = $pk_ops && $self->{dropped_columns}{$pk};
+            $fks = $table1->get_fk_by_col($pk);
             if ($fks) {
-                for my $fk (keys %$fks) {
-                    debug(3, "FK for PK $pk_ops was dropped");
-                    $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;\n";
-                }
+                my $temp_index_name = "temp_".md5_hex($pk);
+                debug(3, "Added temporary index $temp_index_name for PK's field $pk because there is FKs for this field");
+                $self->{temporary_indexes}{$temp_index_name} = 1;
+                $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($pk);\n";
             }
         }
+        #if ($pk_ops) {
+        #    # If PK has foreign keys they must be dropped first and then recreated 
+        #    $fks = $table1->get_fk_by_col($pk_ops);
+        #    if ($fks) {
+        #        for my $fk (keys %$fks) {
+        #            debug(3, "FK for PK $pk_ops was dropped");
+        #            $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;\n";
+        #        }
+        #    }
+        #}
         # If PK's column was dropped, we mustn't drop itself
         if (!$pk_ops) {
             debug(3, "PK $primary1 was dropped");
@@ -630,14 +661,14 @@ sub _diff_primary_key {
                 $k = 0; # In this case we must to do all work in the final
             }
         }
-        if ($pk_ops) {
-            if ($fks) {
-                for my $fk (keys %$fks) {
-                    debug(3, "FK for PK $pk_ops was recreated");
-                    $changes .= "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks->{$fk};\n";
-                }
-            }
-        }
+        #if ($pk_ops) {
+        #    if ($fks) {
+        #        for my $fk (keys %$fks) {
+        #            debug(3, "FK for PK $pk_ops was recreated");
+        #            $changes .= "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks->{$fk};\n";
+        #        }
+        #    }
+        #}
         debug(3, "Auto column's $auto index was dropped") if ($auto);
         $changes .= "ALTER TABLE $name1 DROP INDEX $auto;\n"    if($auto);
         push @changes, [$changes, {'k' => $k}];
@@ -750,12 +781,25 @@ sub _diff_options {
     my ($self, $table1, $table2) = @_;
 
     my $name     = $table1->name();
+    my @changes;
+    if ($self->{temporary_indexes}) {
+        for my $temporary_index (keys $self->{temporary_indexes}) {
+            debug(3, "Dropped temporary index $temporary_index");
+            push @changes, ["ALTER TABLE $name DROP INDEX $temporary_index;\n", {'k' => 0}];
+        }
+    }
+
     my $options1 = $table1->options();
     my $options2 = $table2->options();
 
     return () unless $options1 || $options2;
 
-    my @changes;
+    if (!$options1) {
+        $options1 = '';
+    }
+    if (!$options2) {
+        $options2 = '';
+    }
 
     if ($self->{opts}{tolerant}) {
       for ($options1, $options2) {

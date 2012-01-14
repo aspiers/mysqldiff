@@ -34,6 +34,8 @@ our $VERSION = '0.43';
 use Carp qw(:DEFAULT);
 use File::Slurp;
 use IO::File;
+use DBI;
+use Data::Dumper;
 
 use MySQL::Diff::Utils qw(debug get_save_quotes);
 use MySQL::Diff::Table;
@@ -66,6 +68,18 @@ sub new {
     debug(1,"\nconstructing new MySQL::Diff::Database");
 
     my $string = _auth_args_string(%{$p{auth}});
+    my $default_params;
+    $default_params->{host} = 'localhost';
+    $default_params->{port} = '3306';
+    for my $arg (qw/host port user password socket/) {
+        if ($p{auth}{$arg}) {
+            $self->{auth_data}{$arg} = $p{auth}{$arg};
+        } else {
+            if ($default_params->{$arg}) {
+                $self->{auth_data}{$arg} = $default_params->{$arg};
+            }
+        }
+    }
     debug(1,"auth args: $string");
     $self->{_source}{auth} = $string;
     $self->{_source}{dbh} = $p{dbh} if($p{dbh});
@@ -277,6 +291,8 @@ sub _canonicalise_file {
 sub _read_db {
     my ($self, $db) = @_;
     $self->{_source}{db} = $db;
+    # store database name, if it's not temporary database
+    $self->{db_name} = $db;
     debug(1, "fetching table defs from db $db");
     $self->_get_defs($db);
 }
@@ -286,7 +302,7 @@ sub _get_defs {
 
     my $args = $self->{_source}{auth};
     my $start_time = time();
-    my $fh = IO::File->new("mysqldump -d -q --single-transaction --routines --force $args $db 2>&1 |")
+    my $fh = IO::File->new("mysqldump -d -q --single-transaction --force --skip-triggers $args $db 2>&1 |")
         or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
     debug(6, "running mysqldump -d $args $db");
     my $defs = $self->{_defs} = [ <$fh> ];
@@ -313,16 +329,62 @@ sub _parse_defs {
     if (!$c) {
         $defs =~ s/`//sg;
     }
-    #warn "DEF1:\n", $defs;
     $defs =~ s/(\#|--).*?\n//g; # delete singleline comments
-    #$defs =~ s/.*?SET\s+([^;]*?);{1}\s+//ig; #delete SETs, if they not are in routines
-    $defs =~ s/\/\*\!\d+\s+SET\s+.*?;\s*//ig;
-    #$defs =~ s/\/\*[^\/\*]*?\!\d+\s+([^\/\*]*?)\*\//\n$1/gs; 
+    $defs =~ s/\/\*\!\d+\s+SET\s+.*?;\s*//ig; # delete SETs
     $defs =~ s/\/\*\!\d+\s+(.*?)\*\//\n$1/gs; # get content from executable comments
-    #$defs =~ s/\/\*[^\/\*]*?\*\/\s*//gs; 
     $defs =~ s/\/\*.*?\*\/\s*//gs; #delete all multiline comments
-    $defs =~ s/DELIMITER\s+.*?\s//ig;
-    #warn "DEF2:\n", $defs;
+
+    if ($self->{db_name}) {
+        my $dsn = "DBI:mysql:$self->{db_name}:$self->{auth_data}{host}";
+        my $db_user_name = $self->{auth_data}{user};
+        my $db_password = $self->{auth_data}{password};
+        my $dbh = DBI->connect($dsn, $db_user_name, $db_password);
+        $dbh->do(qq{SET NAMES 'utf8';});
+        # TODO: refactoring
+        # get triggers
+        my $sth = $dbh->prepare(qq{SHOW TRIGGERS});
+        $sth->execute();
+        my @triggers_list = ();
+        while (my @row = $sth->fetchrow_array()) {
+            push(@triggers_list, $row[0]);
+        }
+        $sth->finish();
+        # get procedures
+        $sth = $dbh->prepare(qq{SHOW PROCEDURE STATUS WHERE Db='$self->{db_name}'});
+        $sth->execute();
+        my @procedures_list = ();
+        while (my @row = $sth->fetchrow_array()) {
+            push(@procedures_list, $row[1]);
+        }    
+        $sth->finish();
+        # get functions
+        $sth = $dbh->prepare(qq{SHOW FUNCTION STATUS WHERE Db='$self->{db_name}'});
+        $sth->execute();
+        my @functions_list = ();
+        while (my @row = $sth->fetchrow_array()) {
+            push(@functions_list, $row[1]);
+        }    
+        $sth->finish();
+        my $routines_list;
+        $routines_list->{TRIGGER} = [@triggers_list];
+        $routines_list->{PROCEDURE} = [@procedures_list];
+        $routines_list->{FUNCTION}= [@functions_list];
+        for my $entity (keys %$routines_list) {
+            my @routines_sublist = @{$routines_list->{$entity}};
+            if (@routines_sublist) {
+                foreach (@routines_sublist) {
+                    my $s = qq{SHOW CREATE $entity $_};
+                    $sth = $dbh->prepare($s);
+                    $sth->execute();
+                    my @row = $sth->fetchrow_array();
+                    $defs .= "\n$row[2]";
+                    $sth->finish();
+                }
+            }
+        }
+        $dbh->disconnect();
+    }
+
     my @tables = split /(?=^\s*(?:create|alter|drop)\s+(?:table|.*?view|.*?function|.*?procedure|.*?trigger)\s+)/ims, $defs;
     $self->{_tables} = [];
     $self->{_views} = [];
@@ -330,6 +392,8 @@ sub _parse_defs {
     for my $table (@tables) {
         debug(5, "  table def [$table]");
         if($table =~ /create\s+table/i) {
+            $table =~ s/(\#|--).*?\n//g; # delete singleline comments
+            $table =~ s/\/\*.*?\*\/\s*//gs; #delete all multiline comments
             my $obj = MySQL::Diff::Table->new(source => $self->{_source}, def => $table);
             $self->{_by_name}{$obj->name()} = $obj;
         } 

@@ -97,9 +97,21 @@ Returns an array reference to a list of fields.
 
 Returns a hash reference to fields used as primary key fields.
 
+=item * primary_parts
+
+Returns a hash reference to parts of composite primary key
+
 =item * indices
 
 Returns a hash reference to fields used as index fields.
+
+=item * indices_opts
+
+Returns a hash reference to options of index fields
+
+=item * indices_parts
+
+Returns a hash reference to parts of composite index fields
 
 =item * options
 
@@ -138,6 +150,7 @@ sub primary_key     { my $self = shift; return $self->{primary_key};    }
 sub primary_parts   { my $self = shift; return $self->{primary};        }
 sub indices         { my $self = shift; return $self->{indices};        }
 sub indices_opts    { my $self = shift; return $self->{indices_opts};   }
+sub indices_parts   { my $self = shift; return $self->{indices_parts}{$_[0]};  }
 sub options         { my $self = shift; return $self->{options};        }
 sub foreign_key     { my $self = shift; return $self->{foreign_key};    }
 sub fk_tables       { my $self = shift; return $self->{fk_tables};      }
@@ -217,6 +230,7 @@ sub _parse {
                 $self->{indices_opts}{$key} = $opts;
             }
             $self->{unique}{$key} = 1   if($type =~ /unique/i);
+            $self->{indices_parts}{$key}{$_} = 1 for(split(/,/, $val));
             debug(4, "got ", defined $self->{unique}{$key} ? 'unique ' : '', "index key '$key': ($val)");
             next;
         }
