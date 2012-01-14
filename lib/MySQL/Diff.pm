@@ -619,7 +619,7 @@ sub _diff_primary_key {
         $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
         $changes .= $auto ? _index_auto_col($table2, $auto, $self->{opts}{'no-old-defs'}) : '';
         my $pks = $table1->primary_parts();
-        my $pk_ops = 0; 
+        my $pk_ops = 1; 
         my $fks;
         for my $pk (keys %$pks) {
             if ($self->{dropped_columns}{$pk}) {
