@@ -23,7 +23,7 @@ the second.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.46';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -522,7 +522,7 @@ sub _diff_indices {
                             if ($fks) {
                                 my $temp_index_name = "temp_".md5_hex($index_part);
                                 debug(3, "Added temporary index $temp_index_name for INDEX's field $index_part because there is FKs for this field");
-                                $self->{temporary_indexes}{$temp_index_name} = 1;
+                                $self->{temporary_indexes}{$temp_index_name} = $index_part;
                                 $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($index_part);\n";
                             }
                         }
@@ -545,7 +545,7 @@ sub _diff_indices {
                         if ($fks) {
                             my $temp_index_name = "temp_".md5_hex($index_part);
                             debug(3, "Added temporary index $temp_index_name for INDEX's field $index_part because there is FKs for this field");
-                            $self->{temporary_indexes}{$temp_index_name} = 1;
+                            $self->{temporary_indexes}{$temp_index_name} = $index_part;
                             $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($index_part);\n";
                         }
                     }
@@ -631,7 +631,7 @@ sub _diff_primary_key {
             if ($fks) {
                 my $temp_index_name = "temp_".md5_hex($pk);
                 debug(3, "Added temporary index $temp_index_name for PK's field $pk because there is FKs for this field");
-                $self->{temporary_indexes}{$temp_index_name} = 1;
+                $self->{temporary_indexes}{$temp_index_name} = $pk;
                 $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($pk);\n";
             }
         }
@@ -780,20 +780,25 @@ sub _index_auto_col {
 
 sub _diff_options {
     my ($self, $table1, $table2) = @_;
-
     my $name     = $table1->name();
+    debug(2, "looking at options of $name");
     my @changes;
+    my $change = '';
+    $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
     if ($self->{temporary_indexes}) {
         for my $temporary_index (keys $self->{temporary_indexes}) {
-            debug(3, "Dropped temporary index $temporary_index");
-            push @changes, ["ALTER TABLE $name DROP INDEX $temporary_index;\n", {'k' => 0}];
+            my $column = $self->{temporary_indexes}{$temporary_index};
+            if ($self->{dropped_columns}{$column}) {
+                debug(3, "Column $column was already dropped, so we must not drop temporary index");
+            } else {
+                debug(3, "Dropped temporary index $temporary_index");
+                $change .= "ALTER TABLE $name DROP INDEX $temporary_index;\n";
+            }
         }
     }
 
     my $options1 = $table1->options();
     my $options2 = $table2->options();
-
-    return () unless $options1 || $options2;
 
     if (!$options1) {
         $options1 = '';
@@ -811,13 +816,12 @@ sub _diff_options {
 
     if ($options1 ne $options2) {
         debug(2, "$name options was changed");
-        my $change = '';
-        $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
         $change .= "ALTER TABLE $name $options2;";
         $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
         $change .= "\n";
-        push @changes, [$change, {'k' => 0}]; # the lastest
     }
+
+    push @changes, [$change, {'k' => 0}]; # the lastest
 
     return @changes;
 }

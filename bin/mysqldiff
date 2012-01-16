@@ -146,6 +146,9 @@ exit 0;
 sub usage {
   print STDERR @_, "\n" if @_;
   die <<EOF;
+
+mysqldiff $MySQL::Diff::VERSION
+
 Usage: $Script [ options ] <database1> [<database2>]
 
 Options:
