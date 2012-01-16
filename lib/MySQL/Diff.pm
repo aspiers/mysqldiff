@@ -786,7 +786,7 @@ sub _diff_options {
     my $change = '';
     $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
     if ($self->{temporary_indexes}) {
-        for my $temporary_index (keys $self->{temporary_indexes}) {
+        for my $temporary_index (keys %{$self->{temporary_indexes}}) {
             my $column = $self->{temporary_indexes}{$temporary_index};
             if ($self->{dropped_columns}{$column}) {
                 debug(3, "Column $column was already dropped, so we must not drop temporary index");
