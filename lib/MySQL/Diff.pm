@@ -437,38 +437,68 @@ sub _diff_fields {
         my $pp = $table2->primary_parts();
         my $size = scalar keys %$pp; 
         my $diff_hash = {};
+        # get columns that not presented in table1's fields list (it will be added)
         foreach (keys %$pp) {
             $diff_hash->{$_} = $pp->{$_} if !exists($fields1->{$_});
         }
+        # get list of table2's fields sorted on the basis of availability AUTO_INCREMENT clause
         my @keys = sort { ($fields2->{$a}=~/\s*AUTO_INCREMENT\s*/is) cmp ($fields2->{$b}=~/\s*AUTO_INCREMENT\s*/is)} keys %$fields2;
+        # do the same with diff fields list to get last PK's field
         my @d_keys = sort { ($fields2->{$a}=~/\s*AUTO_INCREMENT\s*/is) cmp ($fields2->{$b}=~/\s*AUTO_INCREMENT\s*/is)} keys %$diff_hash;
         my $f_last = (@d_keys)[-1];
         debug(3, "Last PK: $f_last") if ($f_last);
+        my $alters;
         for my $field (@keys) {
             unless($fields1 && $fields1->{$field}) {
                 debug(2,"field '$field' added");
+                my $field_links = $table2->fields_links($field);
+                my $position = ' FIRST';
+                if ($field_links->{'prev_field'}) {
+                    my $prev_field = $field_links->{'prev_field'};
+                    my $prev_field_links = $table1->fields_links($prev_field);
+                    if ($prev_field_links->{'next_field'}) {
+                        $position = " AFTER $field_links->{'prev_field'}";
+                    } else {
+                        # it is last field, so we must not use "after" clause
+                        $position = '';
+                    }
+                }
                 my $pk = '';
+                # if it is PK...
                 if ($table2->isa_primary($field)) {
                         if ($size == 1) {
+                            # if PK is non-composite we can to add PRIMARY KEY clause
                             debug(3, "field $field is a primary key");
-                            $pk = ' PRIMARY KEY';
+                            $pk = ' PRIMARY KEY' . $position;
                         } else {
+                            # This way, we can to add PRIMARY KEY __operator__ when last part of PK was obtained
                             debug(3, "field $field is a part of composite primary key");
                             if ($field eq $f_last) {
                                 my $p = $table2->primary_key();
-                                $pk = ", ADD PRIMARY KEY $p";
+                                $pk = $position . ", ADD PRIMARY KEY $p";
                             }
                         }
+                        # Flag we add PK's column(s)
                         $self->{added_pk} = 1;
+                } else {
+                    $pk = $position;
                 }
                 my $change = '';
                 $change = "-- $name1\n" unless !$self->{opts}{'list-tables'};
                 $change .= "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field}$pk;\n";
                 my $weight = 5;
+                # MySQL condition for timestamp fields
                 if ($fields2->{$field} =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
                         $weight = 1;
                 }
-                push @changes, [$change, {'k' => $weight}];
+                $alters->{$field}{'content'} = $change;
+                $alters->{$field}{'weight'} = $weight;
+            }
+        }
+        # push alters in common fields list order
+        for my $field (keys %$fields2) {
+            if ($alters->{$field}) {
+                push @changes, [$alters->{$field}{'content'}, {'k' => $alters->{$field}{'weight'}}];
             }
         }
     }

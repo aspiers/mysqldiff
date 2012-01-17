@@ -32,12 +32,13 @@ Parses a table definition into component parts.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.46';
 
 # ------------------------------------------------------------------------------
 # Libraries
 
 use Carp qw(:DEFAULT);
+use Data::Dumper;
 use MySQL::Diff::Utils qw(debug get_save_quotes);
 
 # ------------------------------------------------------------------------------
@@ -146,6 +147,7 @@ sub def             { my $self = shift; return $self->{def};            }
 sub name            { my $self = shift; return $self->{name};           }
 sub field           { my $self = shift; return $self->{fields}{$_[0]};  }
 sub fields          { my $self = shift; return $self->{fields};         }
+sub fields_links    { my $self = shift; return $self->{fields_links}{$_[0]}; }
 sub primary_key     { my $self = shift; return $self->{primary_key};    }
 sub primary_parts   { my $self = shift; return $self->{primary};        }
 sub indices         { my $self = shift; return $self->{indices};        }
@@ -186,6 +188,8 @@ sub _parse {
     }
     my $end_found = 0;
     my $table_end = '';
+    my $prev_field = '';
+    $self->{fields_links} = {};
     while (@lines) {
         $_ = shift @lines;
         if (!$end_found) {
@@ -248,7 +252,11 @@ sub _parse {
         if (/^\)\s*(.*?)$/) { # end of table definition
             $end_found = 1;
             my $opt = $1;
-            $opt =~ s/ AUTO_INCREMENT=(.*?) / /gs;
+            # strip AUTO_INCREMENT option from table definition and from options variable content
+            my $opt_stripped = $opt;
+            $opt_stripped =~ s/ AUTO_INCREMENT=(.*?) / /gs;
+            $self->{def} =~ s/$opt/$opt_stripped/gs;
+            $opt = $opt_stripped;
             $table_end .= $opt;
             debug(4,"got table options '$opt'");
             next;
@@ -259,6 +267,11 @@ sub _parse {
             if (!$end_found) {
                 $self->{fields}{$field} = $fdef;
                 debug(4,"got field def '$field': $fdef");   
+                if ($prev_field) {
+                    $self->{fields_links}{$field}{'prev_field'} = $prev_field;
+                    $self->{fields_links}{$prev_field}{'next_field'} = $field;
+                }
+                $prev_field = $field;
             } else {
                 $table_end .= " $field $fdef";
             }
@@ -267,6 +280,8 @@ sub _parse {
 
         croak "unparsable line in definition for table '$self->{name}':\n$_";
     }
+
+    debug(6, "Table's fields links: ".Dumper($self->{fields_links}));
 
     if ($table_end =~ /^\s*(.*?);$/s) {
         $self->{options} = $table_end;
