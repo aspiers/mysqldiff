@@ -821,7 +821,9 @@ sub _diff_options {
         $change .= "\n";
     }
 
-    push @changes, [$change, {'k' => 0}]; # the lastest
+    if ($change) {
+        push @changes, [$change, {'k' => 0}]; # the lastest
+    }
 
     return @changes;
 }
