@@ -329,11 +329,20 @@ sub _parse_defs {
     if (!$c) {
         $defs =~ s/`//sg;
     }
+    
+    open(DEFS_FILE, '>defs_before_'.$self->{db_name}.'.sql');
+    print DEFS_FILE $defs;
+    close (DEFS_FILE);
+    
     $defs =~ s/(\#|--).*?\n//g; # delete singleline comments
     $defs =~ s/\/\*\!\d+\s+SET\s+.*?;\s*//ig; # delete SETs
     $defs =~ s/\/\*\!\d+\s+(.*?)\*\//\n$1/gs; # get content from executable comments
     $defs =~ s/\/\*.*?\*\/\s*//gs; #delete all multiline comments
-    warn "defs:", $defs;
+    
+    open(DEFS_FILE, '>defs_after_'.$self->{db_name}.'.sql');
+    print DEFS_FILE $defs;
+    close (DEFS_FILE);
+    
     if ($self->{db_name}) {
         my $dsn = "DBI:mysql:$self->{db_name}:$self->{auth_data}{host}";
         my $db_user_name = $self->{auth_data}{user};
@@ -392,8 +401,6 @@ sub _parse_defs {
     for my $table (@tables) {
         debug(5, "  table def [$table]");
         if($table =~ /create\s+table/i) {
-            $table =~ s/(\#|--).*?\n//g; # delete singleline comments
-            $table =~ s/\/\*.*?\*\/\s*//gs; #delete all multiline comments
             my $obj = MySQL::Diff::Table->new(source => $self->{_source}, def => $table);
             $self->{_by_name}{$obj->name()} = $obj;
         } 

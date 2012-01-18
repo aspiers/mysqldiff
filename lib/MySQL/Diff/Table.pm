@@ -184,7 +184,10 @@ sub _parse {
         debug(4,"got table name '$self->{name}'");
         shift @lines;
     } else {
-        croak "couldn't figure out table name";
+        open(TABLES_FILE, '>>tables_log.sql');
+        print TABLES_FILE $lines[0];
+        close (TABLES_FILE);
+        croak "couldn't figure out table name ".$lines[0];
     }
     my $end_found = 0;
     my $table_end = '';
@@ -278,6 +281,9 @@ sub _parse {
             next;
         }
 
+        open(TABLES_FILE, '>>tables_log.sql');
+        print TABLES_FILE $_;
+        close (TABLES_FILE);
         croak "unparsable line in definition for table '$self->{name}':\n$_";
     }
 
