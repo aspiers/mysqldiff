@@ -481,7 +481,7 @@ sub _diff_fields {
                         # Flag we add PK's column(s)
                         $self->{added_pk} = 1;
                 } else {
-                    $pk = $position;
+                    $pk = $position;    
                 }
                 my $change = '';
                 $change = "-- $name1\n" unless !$self->{opts}{'list-tables'};
@@ -814,7 +814,6 @@ sub _diff_options {
     debug(2, "looking at options of $name");
     my @changes;
     my $change = '';
-    $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
     if ($self->{temporary_indexes}) {
         for my $temporary_index (keys %{$self->{temporary_indexes}}) {
             my $column = $self->{temporary_indexes}{$temporary_index};
@@ -822,6 +821,7 @@ sub _diff_options {
                 debug(3, "Column $column was already dropped, so we must not drop temporary index");
             } else {
                 debug(3, "Dropped temporary index $temporary_index");
+                $change .= "-- $name\n" unless !$self->{opts}{'list-tables'};
                 $change .= "ALTER TABLE $name DROP INDEX $temporary_index;\n";
             }
         }
@@ -846,6 +846,7 @@ sub _diff_options {
 
     if ($options1 ne $options2) {
         debug(2, "$name options was changed");
+        $change .= "-- $name\n" unless !$self->{opts}{'list-tables'};
         $change .= "ALTER TABLE $name $options2;";
         $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
         $change .= "\n";

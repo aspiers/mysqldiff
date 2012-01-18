@@ -333,7 +333,7 @@ sub _parse_defs {
     $defs =~ s/\/\*\!\d+\s+SET\s+.*?;\s*//ig; # delete SETs
     $defs =~ s/\/\*\!\d+\s+(.*?)\*\//\n$1/gs; # get content from executable comments
     $defs =~ s/\/\*.*?\*\/\s*//gs; #delete all multiline comments
-
+    warn "defs:", $defs;
     if ($self->{db_name}) {
         my $dsn = "DBI:mysql:$self->{db_name}:$self->{auth_data}{host}";
         my $db_user_name = $self->{auth_data}{user};
