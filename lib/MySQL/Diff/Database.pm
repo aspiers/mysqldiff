@@ -36,6 +36,7 @@ use File::Slurp;
 use IO::File;
 use DBI;
 use Data::Dumper;
+use Digest::MD5 qw(md5 md5_hex);
 
 use MySQL::Diff::Utils qw(debug get_save_quotes);
 use MySQL::Diff::Table;
@@ -302,13 +303,16 @@ sub _get_defs {
 
     my $args = $self->{_source}{auth};
     my $start_time = time();
-    my $fh = IO::File->new("mysqldump -d -q --single-transaction --force --skip-triggers $args $db 2>&1 |")
+    my $errors_fname = 'dump_errors_'.$db.'_'.time().'.log';
+    my $fh = IO::File->new("mysqldump -d -q --single-transaction --force --skip-triggers $args $db 2>$errors_fname |")
         or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
     debug(6, "running mysqldump -d $args $db");
     my $defs = $self->{_defs} = [ <$fh> ];
     $fh->close;
+    open(DUMP_ERRS, "<$errors_fname");
+    my(@errs_lines) = <DUMP_ERRS>;
     debug(6, "dump time: ".(time() - $start_time));
-    if (grep /mysqldump: Got error: .*: Unknown database/, @$defs) {
+    if (grep /mysqldump: Got error: .*: Unknown database/, @errs_lines) {
         die <<EOF;
 Failed to create temporary database $db
 during canonicalization.  Make sure that your mysql.db table has a row
@@ -316,6 +320,7 @@ authorizing full access to all databases matching 'test\\_%', and that
 the database doesn't already exist.
 EOF
     }
+    close (DUMP_ERRS);
 }
 
 sub _parse_defs {

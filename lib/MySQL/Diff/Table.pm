@@ -258,6 +258,7 @@ sub _parse {
             # strip AUTO_INCREMENT option from table definition and from options variable content
             my $opt_stripped = $opt;
             $opt_stripped =~ s/ AUTO_INCREMENT=(.*?) / /gs;
+            $opt = quotemeta($opt);
             $self->{def} =~ s/$opt/$opt_stripped/gs;
             $opt = $opt_stripped;
             $table_end .= $opt;

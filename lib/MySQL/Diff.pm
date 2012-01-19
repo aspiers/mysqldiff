@@ -847,6 +847,9 @@ sub _diff_options {
     if ($options1 ne $options2) {
         debug(2, "$name options was changed");
         $change .= "-- $name\n" unless !$self->{opts}{'list-tables'};
+        if (!($options2 =~ /COMMENT='.*?'/)) {
+            $options2 .= " COMMENT=''";
+        }
         $change .= "ALTER TABLE $name $options2;";
         $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
         $change .= "\n";
