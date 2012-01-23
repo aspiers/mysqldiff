@@ -125,11 +125,16 @@ sub _parse {
     if (!$c) {
         $self->{def} =~ s/`([^`]+)`/$1/gs; # later versions quote names
     }
-    $self->{def} =~ s/\n+/\n/;
-    s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
+    my $copy_def = $self->{def};
+    my $l = [ grep ! /^\s*$/, split /(?=^)/m, $self->{def} ];
+    my @lines =  @{$l};
+    for (@lines) {
+        s/^\s+//;
+        s/\s+$//;
+    }
+    $self->{def} = join "\n", @lines;
     if ($self->{def} =~ /^CREATE(?:\s+DEFINER=(.*?))?\s+(TRIGGER|PROCEDURE|FUNCTION)\s+(.*?)$/gis) {
         my ($definer, $type, $desc) = ($1, $2, $3);
-        #warn "$type desc: ", $desc;
         $self->{type} = $type;
         my $params = '';
         if ($type =~ /TRIGGER/i) {
@@ -174,6 +179,7 @@ sub _parse {
             $desc = $self->_str_replace($self->{options}, '', $desc);
             $self->{body} = $desc;
         }
+        $self->{def} = $copy_def;
         $self->{def} =~ s/$definer/CURRENT_USER/s;
         $self->{params} = $params;
         debug(4, "Routine name: $self->{name}; type: $type");

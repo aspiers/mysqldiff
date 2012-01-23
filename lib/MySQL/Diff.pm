@@ -210,6 +210,9 @@ sub diff {
                 my $r_pars1 = $routine1->params();
                 my $r_pars2 = $routine2->params();
                 if ( ($r_opts1 ne $r_opts2) || ($r_body1 ne $r_body2) || ($r_pars1 ne $r_pars2) ) {
+                    open(ROUTINES_FILE, '>'.$r_type.'_'.$name.'.sql');
+                    print ROUTINES_FILE "Options 1: $r_opts1\nOptions 2: $r_opts2\nBody 1: $r_body1\nBody 2: $r_body2\nParams 1: $r_pars1\nParams 2: $r_pars2";
+                    close (ROUTINES_FILE);
                     my $change = '';
                     $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
                     $change .= "DROP $r_type $name;\n";
@@ -848,7 +851,7 @@ sub _diff_options {
         debug(2, "$name options was changed");
         $change .= "-- $name\n" unless !$self->{opts}{'list-tables'};
         if (!($options2 =~ /COMMENT='.*?'/)) {
-            $options2 .= " COMMENT=''";
+            $options2 = "COMMENT='' " . $options2;
         }
         $change .= "ALTER TABLE $name $options2;";
         $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};

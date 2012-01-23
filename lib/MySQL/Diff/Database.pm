@@ -213,7 +213,8 @@ Returns the routine definitions (see L<MySQL::Diff:Routine>) for the given routi
 
 sub routine_by_name {
     my ($self,$name,$type) = @_;
-    return $self->{r_by_name}{$name}{$type};
+    # epic fail: before i try to get it as $self->{r_by_name}{$name}{$type}; 
+    return $self->{r_by_name}{$type}{$name};
 }
 
 =back
@@ -331,6 +332,7 @@ sub _parse_defs {
     debug(1, "parsing tables defs");
     my $defs = join '', @{$self->{_defs}};
     my $c = get_save_quotes();
+    warn "save quotes: $c";
     if (!$c) {
         $defs =~ s/`//sg;
     }
