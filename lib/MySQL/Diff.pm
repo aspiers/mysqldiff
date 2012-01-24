@@ -75,7 +75,6 @@ sub new {
     } else {
         $dir_path = $FindBin::RealBin.'/logs';
     }
-    warn $dir_path;
 
     if (!-d $dir_path) {
         mkdir $dir_path, 0777;
