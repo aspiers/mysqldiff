@@ -39,7 +39,7 @@ our $VERSION = '0.46';
 
 use Carp qw(:DEFAULT);
 use Data::Dumper;
-use MySQL::Diff::Utils qw(debug get_save_quotes);
+use MySQL::Diff::Utils qw(debug get_save_quotes write_log);
 
 # ------------------------------------------------------------------------------
 
@@ -184,9 +184,7 @@ sub _parse {
         debug(4,"got table name '$self->{name}'");
         shift @lines;
     } else {
-        open(TABLES_FILE, '>>tables_log.sql');
-        print TABLES_FILE $lines[0];
-        close (TABLES_FILE);
+        write_log('tables_log', $lines[0], 1);
         croak "couldn't figure out table name ".$lines[0];
     }
     my $end_found = 0;
@@ -282,9 +280,7 @@ sub _parse {
             next;
         }
 
-        open(TABLES_FILE, '>>tables_log.sql');
-        print TABLES_FILE $_;
-        close (TABLES_FILE);
+        write_log('tables_log', $_, 1);
         croak "unparsable line in definition for table '$self->{name}':\n$_";
     }
 

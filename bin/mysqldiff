@@ -116,7 +116,7 @@ GetOptions(\%opts, "help|?", "debug|d:i", "apply|A", "batch-apply|B",
            "host|h=s", "port|P=s", "socket|s=s", "user|u=s", "password|p:s",
            "host1=s",  "port1=s",  "socket1=s",  "user1=s",  "password1:s",
            "host2=s",  "port2=s",  "socket2=s",  "user2=s",  "password2:s",
-           "tolerant|i", "list-tables|l", "save-quotes|S", "refs|r"
+           "tolerant|i", "list-tables|l", "save-quotes|S", "refs|r", "logs-folder|L=s"
           ) or usage();
 
 usage() if ( (@ARGV < 1) or (@ARGV > 2) or $opts{help});
@@ -164,6 +164,7 @@ Options:
   -t,  --table-re=REGEXP  restrict comparisons to tables matching REGEXP
   -i,  --tolerant         ignore DEFAULT, AUTO_INCREMENT, COLLATE, and formatting changes
   -r,  --refs             show all tables references without any additional output
+  -L,  --logs-folder      path where log will be saved
 
   -h,  --host=...         connect to host
   -P,  --port=...         use this port for connection

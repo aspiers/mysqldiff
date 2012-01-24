@@ -38,7 +38,7 @@ use DBI;
 use Data::Dumper;
 use Digest::MD5 qw(md5 md5_hex);
 
-use MySQL::Diff::Utils qw(debug get_save_quotes);
+use MySQL::Diff::Utils qw(debug get_save_quotes write_log get_logdir generate_random_string);
 use MySQL::Diff::Table;
 use MySQL::Diff::View;
 use MySQL::Diff::Routine;
@@ -304,7 +304,11 @@ sub _get_defs {
 
     my $args = $self->{_source}{auth};
     my $start_time = time();
-    my $errors_fname = 'dump_errors_'.$db.'_'.time().'.log';
+    my $errors_fname = get_logdir() . '/' . generate_random_string() . '_dump_errors_'.$db.'_'.time().'.log';
+    if (!$self->{db_name}) {
+        $self->{temp_db_name} = $db;
+    }
+    warn $errors_fname;
     my $fh = IO::File->new("mysqldump -d -q --single-transaction --force --skip-triggers $args $db 2>$errors_fname |")
         or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
     debug(6, "running mysqldump -d $args $db");
@@ -332,23 +336,22 @@ sub _parse_defs {
     debug(1, "parsing tables defs");
     my $defs = join '', @{$self->{_defs}};
     my $c = get_save_quotes();
-    warn "save quotes: $c";
     if (!$c) {
         $defs =~ s/`//sg;
     }
     
-    open(DEFS_FILE, '>defs_before_'.$self->{db_name}.'.sql');
-    print DEFS_FILE $defs;
-    close (DEFS_FILE);
+    my $db_log = '';
+    if ($self->{db_name}) {
+        $db_log = $self->{db_name};
+    } else {
+        $db_log = $self->{temp_db_name};
+    }
+    write_log('defs_before_'.$db_log.'.sql', $defs);
     
     $defs =~ s/(\#|--).*?\n//g; # delete singleline comments
     $defs =~ s/\/\*\!\d+\s+SET\s+.*?;\s*//ig; # delete SETs
     $defs =~ s/\/\*\!\d+\s+(.*?)\*\//\n$1/gs; # get content from executable comments
     $defs =~ s/\/\*.*?\*\/\s*//gs; #delete all multiline comments
-    
-    open(DEFS_FILE, '>defs_after_'.$self->{db_name}.'.sql');
-    print DEFS_FILE $defs;
-    close (DEFS_FILE);
     
     if ($self->{db_name}) {
         my $dsn = "DBI:mysql:$self->{db_name}:$self->{auth_data}{host}";
@@ -400,6 +403,8 @@ sub _parse_defs {
         }
         $dbh->disconnect();
     }
+
+    write_log('defs_after_'.$db_log.'.sql', $defs);
 
     my @tables = split /(?=^\s*(?:create|alter|drop)\s+(?:table|.*?view|.*?function|.*?procedure|.*?trigger)\s+)/ims, $defs;
     $self->{_tables} = [];

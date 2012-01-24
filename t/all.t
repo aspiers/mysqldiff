@@ -116,7 +116,7 @@ my %tests = (
 ## --- file: tmp.db1
 ## +++ file: tmp.db2
 
-ALTER TABLE foo ADD COLUMN field blob ;
+ALTER TABLE foo ADD COLUMN field blob;
 ',
   ],
   

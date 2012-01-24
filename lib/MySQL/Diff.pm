@@ -29,10 +29,11 @@ our $VERSION = '0.46';
 # Libraries
 
 use MySQL::Diff::Database;
-use MySQL::Diff::Utils qw(debug debug_level debug_file set_save_quotes);
+use MySQL::Diff::Utils qw(debug debug_level debug_file set_save_quotes save_logdir write_log);
 
 use Data::Dumper;
 use Digest::MD5 qw(md5 md5_hex);
+use FindBin;
 
 # ------------------------------------------------------------------------------
 
@@ -67,6 +68,19 @@ sub new {
     }
 
     debug(1,"\nconstructing new MySQL::Diff");
+
+    my $dir_path = '';
+    if ($hash{'logs-folder'}) {
+        $dir_path = $hash{'logs-folder'};
+    } else {
+        $dir_path = $FindBin::RealBin.'/logs';
+    }
+    warn $dir_path;
+
+    if (!-d $dir_path) {
+        mkdir $dir_path, 0777;
+    }
+    save_logdir($dir_path);
 
     return $self;
 }
@@ -210,15 +224,11 @@ sub diff {
                 my $r_pars1 = $routine1->params();
                 my $r_pars2 = $routine2->params();
                 if ( ($r_opts1 ne $r_opts2) || ($r_body1 ne $r_body2) || ($r_pars1 ne $r_pars2) ) {
-                    open(ROUTINES_FILE, '>'.$r_type.'_'.$name.'.sql');
-                    print ROUTINES_FILE "Options 1: $r_opts1\nOptions 2: $r_opts2\nBody 1: $r_body1\nBody 2: $r_body2\nParams 1: $r_pars1\nParams 2: $r_pars2";
-                    close (ROUTINES_FILE);
-                    my $change = '';
-                    $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                    write_log($r_type.'_'.$name.'.sql', "Options 1: $r_opts1\nOptions 2: $r_opts2\nBody 1: $r_body1\nBody 2: $r_body2\nParams 1: $r_pars1\nParams 2: $r_pars2");
+                    my $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
                     $change .= "DROP $r_type $name;\n";
                     $change .= "DELIMITER ;;\n";
                     $change .= $routine2->def() . ";;\n";
-                    #$change .= "CREATE $r_type $r_opts2 $r_body2";
                     $change .= "DELIMITER ;\n";
                     push @changes, [$change, {'k' => 1}]                 
                             unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
