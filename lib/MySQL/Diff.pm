@@ -401,9 +401,43 @@ sub _diff_fields {
     return () unless $fields1 || $fields2;
 
     my @changes;
-  
+
+    # parts of primary key in table 2
+    my $pp = $table2->primary_parts();
+    # size of parts (1 in case key is non-composite)
+    my $size = scalar keys %$pp; 
+    my $diff_hash = {};
+    # get columns from primary key parts that not presented in table1's fields list (it will be added)
+    foreach (keys %$pp) {
+        $diff_hash->{$_} = $pp->{$_} if !exists($fields1->{$_});
+    }
+    # get list of diff fields sorted on the basis of availability AUTO_INCREMENT clause to get last PK's field
+    my $f_last;
+    my @d_keys;
+    if (keys %$diff_hash) {
+        @d_keys = sort { ($fields2->{$a}=~/\s*AUTO_INCREMENT\s*/is) cmp ($fields2->{$b}=~/\s*AUTO_INCREMENT\s*/is)} keys %$diff_hash;
+    } else {
+        @d_keys = sort { ($fields2->{$a}=~/\s*AUTO_INCREMENT\s*/is) cmp ($fields2->{$b}=~/\s*AUTO_INCREMENT\s*/is)} keys %$pp;
+    }
+    $f_last = (@d_keys)[-1];
+    debug(3, "Last PK: $f_last") if ($f_last);
+
     if($fields1) {
-        for my $field (keys %$fields1) {
+        # get list of table1's fields sorted on the basis of availability AUTO_INCREMENT clause IN TABLE 2 and, then, on PROPERLY order of fields
+        my $order1 = $table1->fields_order();
+        my @keys = sort { 
+            (
+                ($fields2 && $fields2->{$a} && $fields2->{$b}) &&
+                (
+                        ($fields2->{$a}=~/\s*AUTO_INCREMENT\s*/is) cmp 
+                        ($fields2->{$b}=~/\s*AUTO_INCREMENT\s*/is)
+                )
+            ) 
+            || 
+            ($order1->{$a} <=> $order1->{$b})
+        } keys %$fields1;
+        my $alters;
+        for my $field (@keys) {
             debug(2, "$name1 had field '$field'");
             my $f1 = $fields1->{$field};
             my $f2 = $fields2->{$field};
@@ -420,16 +454,45 @@ sub _diff_fields {
                          ($f1 ne "$f2 NOT NULL") ))
                     {
                         debug(3,"field '$field' changed");
+                        my $pk = '';
+                        # if it's PK in second table...
+                        if ($table2->isa_primary($field)) {
+                            # if some parts of PK will be added later, we must not do any work with PK now
+                            if (keys %$diff_hash) {
+                                debug(3, "There will be parts of PK that exist only in second table");
+                            } else {
+                                # otherwise, add PRIMARY KEY clause/operator:
+                                # if there wasn't PK, it will be created HERE
+                                # if it was, we WILL drop it (in _diff_primary_key) and create again by operator generated here.
+                                debug(3, "All parts of PK are exist in both tables");
+                                if ($size == 1) {
+                                    # if PK is non-composite we can to add PRIMARY KEY clause
+                                    debug(3, "field $field was changed to be a primary key");
+                                    $pk = ' PRIMARY KEY';
+                                } else {
+                                    # This way, we can to add PRIMARY KEY __operator__ when last part of PK was obtained
+                                    debug(3, "field $field is a part of composite primary key and it was changed");
+                                    if ($field eq $f_last) {
+                                        debug(3, "field '$field' is a last part of composite primary key, so when it changed, we must to add primary key then");
+                                        my $p = $table2->primary_key();
+                                        $pk = ", ADD PRIMARY KEY $p";
+                                    }
+                                }
+                            }
+                            # Flag we add PK's column(s)
+                            $self->{added_pk} = 1;
+                        }  
                         my $change = '';
                         $change =  "-- $name1\n" unless !$self->{opts}{'list-tables'};
-                        $change .= "ALTER TABLE $name1 CHANGE COLUMN $field $field $f2;";
+                        $change .= "ALTER TABLE $name1 CHANGE COLUMN $field $field $f2$pk;";
                         $change .= " # was $f1" unless $self->{opts}{'no-old-defs'};
                         $change .= "\n";
                         my $weight = 5;
                         if ($f2 =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
                                 $weight = 1;
                         }
-                        push @changes, [$change, {'k' => $weight}]; # column must be changed/added first
+                        # column must be changed/added first
+                        push @changes, [$change, {'k' => $weight}];
                     }
                 }
             } else {
@@ -440,25 +503,20 @@ sub _diff_fields {
                 $change .= " # was $fields1->{$field}" unless $self->{opts}{'no-old-defs'};
                 $change .= "\n";
                 $self->{dropped_columns}{$field} = 1;
-                push @changes, [$change, {'k' => 1}]; # column must be dropped last
+                # column must be dropped last
+                push @changes, [$change, {'k' => 1}];
             }
         }
     }
 
     if($fields2) {
-        my $pp = $table2->primary_parts();
-        my $size = scalar keys %$pp; 
-        my $diff_hash = {};
-        # get columns that not presented in table1's fields list (it will be added)
-        foreach (keys %$pp) {
-            $diff_hash->{$_} = $pp->{$_} if !exists($fields1->{$_});
-        }
-        # get list of table2's fields sorted on the basis of availability AUTO_INCREMENT clause
-        my @keys = sort { ($fields2->{$a}=~/\s*AUTO_INCREMENT\s*/is) cmp ($fields2->{$b}=~/\s*AUTO_INCREMENT\s*/is)} keys %$fields2;
-        # do the same with diff fields list to get last PK's field
-        my @d_keys = sort { ($fields2->{$a}=~/\s*AUTO_INCREMENT\s*/is) cmp ($fields2->{$b}=~/\s*AUTO_INCREMENT\s*/is)} keys %$diff_hash;
-        my $f_last = (@d_keys)[-1];
-        debug(3, "Last PK: $f_last") if ($f_last);
+        my $order2 = $table2->fields_order();
+        # get list of table2's fields sorted on the basis of availability AUTO_INCREMENT clause and, then, with properly order
+        my @keys = sort { 
+            ($fields2->{$a}=~/\s*AUTO_INCREMENT\s*/is) cmp ($fields2->{$b}=~/\s*AUTO_INCREMENT\s*/is) 
+            ||
+            ($order2->{$a} <=> $order2->{$b})
+        } keys %$fields2;
         my $alters;
         for my $field (@keys) {
             unless($fields1 && $fields1->{$field}) {
@@ -468,14 +526,24 @@ sub _diff_fields {
                 if ($field_links->{'prev_field'}) {
                     my $prev_field = $field_links->{'prev_field'};
                     my $prev_field_links = $table1->fields_links($prev_field);
-                    if ($prev_field_links->{'next_field'}) {
-                        $position = " AFTER $field_links->{'prev_field'}";
+                    if (!$prev_field_links) {
+                        $prev_field_links = $table2->fields_links($prev_field);
+                    }
+                    if ($prev_field_links && $prev_field_links->{'next_field'}) {
+                        if ($alters->{$prev_field}) {
+                            # field before was already added, so it's safe to add current field with AFTER clause
+                            $position = " AFTER $prev_field";
+                        } else {
+                            $alters->{$prev_field} = "ALTER TABLE $name1 CHANGE COLUMN $field $field $fields2->{$field} AFTER $prev_field;\n";
+                            $position = '';
+                        }
                     } else {
                         # it is last field, so we must not use "after" clause
                         $position = '';
                     }
                 }
-                my $pk = '';
+                debug(3, "field '$field' added at position: $position") if ($position);
+                my $pk = $position;
                 # if it is PK...
                 if ($table2->isa_primary($field)) {
                         if ($size == 1) {
@@ -486,31 +554,28 @@ sub _diff_fields {
                             # This way, we can to add PRIMARY KEY __operator__ when last part of PK was obtained
                             debug(3, "field $field is a part of composite primary key");
                             if ($field eq $f_last) {
+                                debug(3, "field '$field' is a last part of composite primary key");
                                 my $p = $table2->primary_key();
                                 $pk = $position . ", ADD PRIMARY KEY $p";
                             }
                         }
                         # Flag we add PK's column(s)
                         $self->{added_pk} = 1;
-                } else {
-                    $pk = $position;    
                 }
                 my $change = '';
                 $change = "-- $name1\n" unless !$self->{opts}{'list-tables'};
                 $change .= "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field}$pk;\n";
+                if (!$alters->{$field}) {
+                    $alters->{$field} = 1;
+                } else {
+                    $change .= $alters->{$field};
+                }
                 my $weight = 5;
                 # MySQL condition for timestamp fields
                 if ($fields2->{$field} =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
                         $weight = 1;
                 }
-                $alters->{$field}{'content'} = $change;
-                $alters->{$field}{'weight'} = $weight;
-            }
-        }
-        # push alters in common fields list order
-        for my $field (keys %$fields2) {
-            if ($alters->{$field}) {
-                push @changes, [$alters->{$field}{'content'}, {'k' => $alters->{$field}{'weight'}}];
+                push @changes, [$change, {'k' => $weight}];
             }
         }
     }
@@ -636,17 +701,18 @@ sub _diff_primary_key {
         debug(2,"primary key '$primary1' dropped");
         my $changes = '';
         $changes .= "-- $name1\n" unless !$self->{opts}{'list-tables'};
-        $changes = _index_auto_col($table2, $primary1, $self->{opts}{'no-old-defs'});
+        my $auto = _check_for_auto_col($table2, $primary1) || '';
+        $changes .= $auto ? _index_auto_col($table2, $primary1, $self->{opts}{'no-old-defs'}) : '';
         $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
         $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
         return ["$changes\n", {'k' => 4}]; # DROP PK FIRST
     }
 
     if (! $primary1 && $primary2) {
-        debug(2,"primary key '$primary2' added");
         if ($self->{added_pk}) {
                 return ();
         }
+        debug(2,"primary key '$primary2' added");
         my $changes = '';
         $changes .= "-- $name1\n" unless !$self->{opts}{'list-tables'};
         $changes .= "ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
@@ -659,16 +725,19 @@ sub _diff_primary_key {
         debug(3, "Auto column $auto indexed") if ($auto);
         my $changes = '';
         my $k = 3;
-        $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+        $changes = "-- $name1\n" unless !$self->{opts}{'list-tablALTER TABLE crm_priceparser_slovar_partnumber ADD INDEX (id,md5);es'};
         $changes .= $auto ? _index_auto_col($table2, $auto, $self->{opts}{'no-old-defs'}) : '';
         my $pks = $table1->primary_parts();
         my $pk_ops = 1; 
         my $fks;
+        # for every part in primary key (if non-composite, there will be only one part)
         for my $pk (keys %$pks) {
             if ($self->{dropped_columns}{$pk}) {
                 debug(3, "PK's $pk column was dropped");
             }
+            # store result, all of parts was dropped or not
             $pk_ops = $pk_ops && $self->{dropped_columns}{$pk};
+            # for every part we also get foreign keys and add temporary indexes
             $fks = $table1->get_fk_by_col($pk);
             if ($fks) {
                 my $temp_index_name = "temp_".md5_hex($pk);
@@ -677,17 +746,7 @@ sub _diff_primary_key {
                 $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($pk);\n";
             }
         }
-        #if ($pk_ops) {
-        #    # If PK has foreign keys they must be dropped first and then recreated 
-        #    $fks = $table1->get_fk_by_col($pk_ops);
-        #    if ($fks) {
-        #        for my $fk (keys %$fks) {
-        #            debug(3, "FK for PK $pk_ops was dropped");
-        #            $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;\n";
-        #        }
-        #    }
-        #}
-        # If PK's column was dropped, we mustn't drop itself
+        # If PK's column(s) ALL was dropped, we mustn't drop itself; for auto columns we already create indexes
         if (!$pk_ops) {
             debug(3, "PK $primary1 was dropped");
             $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
@@ -703,15 +762,7 @@ sub _diff_primary_key {
             if ($pk_ops) {
                 $k = 0; # In this case we must to do all work in the final
             }
-        }
-        #if ($pk_ops) {
-        #    if ($fks) {
-        #        for my $fk (keys %$fks) {
-        #            debug(3, "FK for PK $pk_ops was recreated");
-        #            $changes .= "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks->{$fk};\n";
-        #        }
-        #    }
-        #}
+        }   
         debug(3, "Auto column's $auto index was dropped") if ($auto);
         $changes .= "ALTER TABLE $name1 DROP INDEX $auto;\n"    if($auto);
         push @changes, [$changes, {'k' => $k}];

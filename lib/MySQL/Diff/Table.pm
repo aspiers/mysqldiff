@@ -148,6 +148,7 @@ sub name            { my $self = shift; return $self->{name};           }
 sub field           { my $self = shift; return $self->{fields}{$_[0]};  }
 sub fields          { my $self = shift; return $self->{fields};         }
 sub fields_links    { my $self = shift; return $self->{fields_links}{$_[0]}; }
+sub fields_order    { my $self = shift; return $self->{fields_order};   }
 sub primary_key     { my $self = shift; return $self->{primary_key};    }
 sub primary_parts   { my $self = shift; return $self->{primary};        }
 sub indices         { my $self = shift; return $self->{indices};        }
@@ -191,6 +192,8 @@ sub _parse {
     my $table_end = '';
     my $prev_field = '';
     $self->{fields_links} = {};
+    my $fields_order;
+    my $start_order = 0;
     while (@lines) {
         $_ = shift @lines;
         if (!$end_found) {
@@ -274,6 +277,8 @@ sub _parse {
                     $self->{fields_links}{$prev_field}{'next_field'} = $field;
                 }
                 $prev_field = $field;
+                # save properly fields order, because hash not store it
+                $self->{fields_order}{$field} = ++$start_order;
             } else {
                 $table_end .= " $field $fdef";
             }
