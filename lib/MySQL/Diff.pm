@@ -465,18 +465,24 @@ sub _diff_fields {
                                 # if there wasn't PK, it will be created HERE
                                 # if it was, we WILL drop it (in _diff_primary_key) and create again by operator generated here.
                                 debug(3, "All parts of PK are exist in both tables");
-                                if ($size == 1) {
-                                    # if PK is non-composite we can to add PRIMARY KEY clause
-                                    debug(3, "field $field was changed to be a primary key");
-                                    $pk = ' PRIMARY KEY';
-                                } else {
-                                    # This way, we can to add PRIMARY KEY __operator__ when last part of PK was obtained
-                                    debug(3, "field $field is a part of composite primary key and it was changed");
-                                    if ($field eq $f_last) {
-                                        debug(3, "field '$field' is a last part of composite primary key, so when it changed, we must to add primary key then");
-                                        my $p = $table2->primary_key();
-                                        $pk = ", ADD PRIMARY KEY $p";
+                                # if it's not PK already (in TABLE 1)
+                                if (!$table1->isa_primary($field)) {
+                                    if ($size == 1) {
+                                        # if PK is non-composite we can to add PRIMARY KEY clause
+                                        debug(3, "field $field was changed to be a primary key");
+                                        $pk = ' PRIMARY KEY';
+                                    } else {
+                                        # This way, we can to add PRIMARY KEY __operator__ when last part of PK was obtained
+                                        debug(3, "field $field is a part of composite primary key and it was changed");
+                                        if ($field eq $f_last) {
+                                            debug(3, "field '$field' is a last part of composite primary key, so when it changed, we must to add primary key then");
+                                            my $p = $table2->primary_key();
+                                            $pk = ", ADD PRIMARY KEY $p";
+                                        }
                                     }
+                                } else {
+                                    debug(3, "field '$field' is alredy PK in table 1");
+                                    $pk = '';
                                 }
                             }
                             # Flag we add PK's column(s)
