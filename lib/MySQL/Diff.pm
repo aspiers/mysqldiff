@@ -228,7 +228,7 @@ sub diff {
                         my $change = '';
                         $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
                         $change .= "ALTER ALGORITHM=$opts2->{'algorithm'} DEFINER=CURRENT_USER SQL SECURITY $opts2->{'security'} VIEW $name $f2 AS ($sel2) $opts2->{'trail'};\n";
-                        push @changes, [$change, {'k' => 1}]                 
+                        push @changes, [$change, {'k' => 5}]                 
                             unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
                     }
                 } else {
@@ -289,7 +289,7 @@ sub diff {
                 my $change = '';
                 $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
                 $change .= $view2->def() . "\n";
-                push @changes, [$change, {'k' => 1}]
+                push @changes, [$change, {'k' => 5}]
                     unless $self->{opts}{'only-both'};
             }
         }
@@ -701,6 +701,7 @@ sub _diff_primary_key {
 
     my @changes;
   
+    # TODO: merge logic
     if ($primary1 && ! $primary2) {
         debug(2,"primary key '$primary1' dropped");
         my $changes = '';
@@ -729,7 +730,7 @@ sub _diff_primary_key {
         debug(3, "Auto column $auto indexed") if ($auto);
         my $changes = '';
         my $k = 3;
-        $changes = "-- $name1\n" unless !$self->{opts}{'list-tablALTER TABLE crm_priceparser_slovar_partnumber ADD INDEX (id,md5);es'};
+        $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
         $changes .= $auto ? _index_auto_col($table2, $auto, $self->{opts}{'no-old-defs'}) : '';
         my $pks = $table1->primary_parts();
         my $pk_ops = 1; 
