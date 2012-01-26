@@ -112,8 +112,8 @@ use MySQL::Diff;
 
 my %opts = ();
 GetOptions(\%opts, "help|?", "debug|d:i", "apply|A", "batch-apply|B",
-           "keep-old-tables|k", "no-old-defs|n", "only-both|o", "table-re|t=s",
-		   "tables|T=s",
+           "keep-old-tables|k", "no-old-defs|n", "only-both|o", "quiet|q",
+           "table-re|t=s", "tables|T=s",
            "host|h=s", "port|P=s", "socket|s=s", "user|u=s", "password|p:s",
            "host1=s",  "port1=s",  "socket1=s",  "user1=s",  "password1:s",
            "host2=s",  "port2=s",  "socket2=s",  "user2=s",  "password2:s",
@@ -157,6 +157,7 @@ Options:
   -l,  --list-tables      output the list of all used tables
   -S,  --save-quotes      save quotes in tables definitions
   -o,  --only-both        only output changes for tables in both databases
+  -q,  --quiet            output only the appropriate SQL
   -k,  --keep-old-tables  don't output DROP TABLE commands
   -n,  --no-old-defs      suppress comments describing old definitions
   -t,  --table-re=REGEXP  restrict comparisons to tables matching REGEXP

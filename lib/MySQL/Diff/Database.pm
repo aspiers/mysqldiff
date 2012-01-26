@@ -69,12 +69,13 @@ sub new {
     $self->{_source}{auth} = $string;
     $self->{_source}{dbh} = $p{dbh} if($p{dbh});
 
+	my $tl = $p{table_list} // "";
     if ($p{file}) {
         debug(1, "Started to canonicalise file ".$p{file});
-        $self->_canonicalise_file($p{file},$p{table_list});
+        $self->_canonicalise_file($p{file},$tl);
     } elsif ($p{db}) {
         debug(1, "Started to read db ".$p{db});
-        $self->_read_db($p{db},$p{table_list});
+        $self->_read_db($p{db},$tl);
     } else {
         confess "MySQL::Diff::Database::new called without db or file params";
     }

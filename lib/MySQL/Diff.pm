@@ -233,11 +233,11 @@ sub diff {
         }
     }
 
-    debug(4,join '', @changes);
+    debug(4, Dumper(@changes));
 
     my $out = '';
     if (@changes) {
-        if (!$self->{opts}{'list-tables'} && !$self->{opts}{'refs'}) {
+        if (!$self->{opts}{'list-tables'} && !$self->{opts}{'refs'} && !$self->{opts}{'quiet'}) {
             $out .= $self->_diff_banner();
         }
         my @sorted = sort { return $b->[1]->{'k'} cmp $a->[1]->{'k'} } @changes;
@@ -549,8 +549,10 @@ sub _diff_foreign_key {
                     $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
                     $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
                         unless $self->{opts}{'no-old-defs'};
-                    $changes .= "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";                 
-                    push @changes, [$changes, {'k' => 1}]; # ADD/CHANGE FK LAST
+                    $changes .= "\n";
+                    push @changes, [$changes, {'k' => 5}]; # DROP FK FIRST
+                    $changes = "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
+                    push @changes, [$changes, {'k' => 1}]; # ADD FK LAST
                 }
             } else {
                 debug(1,"foreign key '$fk' removed");
