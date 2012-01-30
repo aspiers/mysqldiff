@@ -74,6 +74,7 @@ Get choice about save saving quotes
     my $debug_level = 0;
     my $choice = 0;
     my $log_dir = '';
+    my $random_string = '';
 
     sub debug_file {
         my ($new_debug_file) = @_;
@@ -122,7 +123,7 @@ Get choice about save saving quotes
     }
 
     sub generate_random_string {
-        my @chars=('a'..'z','A'..'Z','0'..'9','_');
+        my @chars=('a'..'z','A'..'Z','0'..'9');
         my $random_string = '';
         foreach (1..5) 
         {
@@ -137,7 +138,9 @@ Get choice about save saving quotes
         my ($filename, $content, $append) = @_;
         if ($log_dir && $filename && $content) {
             my @chars=('a'..'z','A'..'Z','0'..'9','_');
-            my $random_string = generate_random_string();
+            if (!$random_string) {
+                $random_string = generate_random_string();
+            }
             $filename = $log_dir . '/' . $random_string . '_' . $filename ;
             if ($append) {
                 open(LOG_FILE, '>>'.$filename);

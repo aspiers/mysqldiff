@@ -236,7 +236,7 @@ sub diff {
                     my $change = '';
                     $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
                     $change .= "DROP VIEW $name;\n\n";
-                    push @changes, [$change, {'k' => 5}]                 
+                    push @changes, [$change, {'k' => 6}]                 
                          unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
                 }
         }
@@ -522,6 +522,8 @@ sub _diff_fields {
             ($order2->{$a} <=> $order2->{$b})
         } keys %$fields2;
         my $alters;
+        my $after_ts = 0;
+        my $weight = 5;
         for my $field (@keys) {
             unless($fields1 && $fields1->{$field}) {
                 debug(2,"field '$field' added");
@@ -534,16 +536,31 @@ sub _diff_fields {
                         $prev_field_links = $table2->fields_links($prev_field);
                     }
                     if ($prev_field_links && $prev_field_links->{'next_field'}) {
-                        if ($alters->{$prev_field}) {
-                            # field before was already added, so it's safe to add current field with AFTER clause
-                            $position = " AFTER $prev_field";
+                        if (!$after_ts) {
+                            if ($alters->{$prev_field}) {
+                                # field before was already added, so it's safe to add current field with AFTER clause
+                                $position = " AFTER $prev_field";
+                            } else {
+                                $alters->{$prev_field} = "ALTER TABLE $name1 CHANGE COLUMN $field $field $fields2->{$field} AFTER $prev_field;\n";
+                                $position = '';
+                            }
                         } else {
-                            $alters->{$prev_field} = "ALTER TABLE $name1 CHANGE COLUMN $field $field $fields2->{$field} AFTER $prev_field;\n";
                             $position = '';
+                            $after_ts = 0;
                         }
                     } else {
                         # it is last field, so we must not use "after" clause
                         $position = '';
+                    }
+                }
+                $weight = 5;
+                # MySQL condition for timestamp fields
+                if ($fields2->{$field} =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
+                    $weight = 1;
+                    if ($field_links->{'next_field'}) {
+                        my $next_field = $field_links->{'next_field'};
+                        $after_ts = 1;
+                        $alters->{$field} = "ALTER TABLE $name1 CHANGE COLUMN $next_field $next_field $fields2->{$next_field} AFTER $field;\n";
                     }
                 }
                 debug(3, "field '$field' added at position: $position") if ($position);
@@ -574,11 +591,7 @@ sub _diff_fields {
                 } else {
                     $change .= $alters->{$field};
                 }
-                my $weight = 5;
-                # MySQL condition for timestamp fields
-                if ($fields2->{$field} =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
-                        $weight = 1;
-                }
+
                 push @changes, [$change, {'k' => $weight}];
             }
         }
