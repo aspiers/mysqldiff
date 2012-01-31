@@ -340,7 +340,7 @@ sub _add_ref_tables {
                 } else {
                     $change = "$name$additional_tables\n";
                 }
-                push @changes, [$change, {'k' => 2}];
+                push @changes, [$change, {'k' => 6}];
             }
         }
     }
