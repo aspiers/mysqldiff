@@ -557,11 +557,22 @@ sub _diff_fields {
                 # MySQL condition for timestamp fields
                 if ($fields2->{$field} =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
                     $weight = 1;
-                    if ($field_links->{'next_field'}) {
+
+                    $alters->{$field} = '';
+                    my $current_field = $field;
+                    while ($field_links->{'next_field'}) {
                         my $next_field = $field_links->{'next_field'};
                         $after_ts = 1;
-                        $alters->{$field} = "ALTER TABLE $name1 CHANGE COLUMN $next_field $next_field $fields2->{$next_field} AFTER $field;\n";
+                        $alters->{$field} .= "ALTER TABLE $name1 CHANGE COLUMN $next_field $next_field $fields2->{$next_field} AFTER $current_field;\n";
+                        $field_links = $table2->fields_links($next_field);
+                        $current_field = $next_field;
                     }
+
+                    #if ($field_links->{'next_field'}) {
+                    #    my $next_field = $field_links->{'next_field'};
+                    #    $after_ts = 1;
+                    #    $alters->{$field} = "ALTER TABLE $name1 CHANGE COLUMN $next_field $next_field $fields2->{$next_field} AFTER $field;\n";
+                    #}
                 }
                 debug(3, "field '$field' added at position: $position") if ($position);
                 my $pk = $position;
