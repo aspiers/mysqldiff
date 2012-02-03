@@ -154,7 +154,7 @@ sub diff {
                 my $change = '';
                 $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
                 $change .= "DROP TABLE $name;\n\n";
-                push @changes, [$change, {'k' => 5}]                 
+                push @changes, [$change, {'k' => 8}]                 
                     unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; # drop table after all
             }
         } else {
@@ -478,13 +478,17 @@ sub _diff_fields {
                                             $pk = ", ADD PRIMARY KEY $p";
                                         }
                                     }
+                                    # Flag we add PK's column(s)
+                                    $self->{added_pk} = 1;
                                 } else {
-                                    debug(3, "field '$field' is alredy PK in table 1");
+                                    debug(3, "field '$field' is already PK in table 1");
                                     $pk = '';
                                 }
                             }
-                            # Flag we add PK's column(s)
-                            $self->{added_pk} = 1;
+                        } else {
+                            if ($f2 =~ /DEFAULT NULL/) {
+                                
+                            }
                         }  
                         my $change = '';
                         $change =  "-- $name1\n" unless !$self->{opts}{'list-tables'};
@@ -498,7 +502,13 @@ sub _diff_fields {
                         # column must be changed/added first
                         push @changes, [$change, {'k' => $weight}];
                     }
-                }
+                } 
+                #else {
+                #    if ($table2->isa_primary($field)) {
+                #        debug(3, "column '$field' is a PK in second table");
+                #        $self->{added_pk} = 1;
+                #    }
+                #}
             } else {
                 debug(3,"field '$field' removed");
                 my $change = '';
@@ -697,7 +707,7 @@ sub _diff_indices {
     if($indices2) {
         for my $index (keys %$indices2) {
             next    if($indices1 && $indices1->{$index});
-            debug(3,"index '$index' added");
+            debug(2,"index '$index' added");
             my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 'INDEX';
             my $opts = '';
             if ($opts2->{$index}) {
@@ -724,18 +734,6 @@ sub _diff_primary_key {
     return () unless $primary1 || $primary2;
 
     my @changes;
-  
-    # TODO: merge logic
-    if ($primary1 && ! $primary2) {
-        debug(2,"primary key '$primary1' dropped");
-        my $changes = '';
-        $changes .= "-- $name1\n" unless !$self->{opts}{'list-tables'};
-        my $auto = _check_for_auto_col($table2, $primary1) || '';
-        $changes .= $auto ? _index_auto_col($table2, $primary1, $self->{opts}{'no-old-defs'}) : '';
-        $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
-        $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
-        return ["$changes\n", {'k' => 4}]; # DROP PK FIRST
-    }
 
     if (! $primary1 && $primary2) {
         if ($self->{added_pk}) {
@@ -747,15 +745,17 @@ sub _diff_primary_key {
         $changes .= "ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
         return ["$changes\n", {'k' => 3}]; # ADD/CHANGE PK AFTER COLUMN ADD
     }
-
-    if ($primary1 ne $primary2) {
-        debug(2,"primary key changed");
+  
+    my $changes = '';
+    my $k = 3;
+    if ( ($primary1 && !$primary2) || ($primary1 ne $primary2) ) {
         my $auto = _check_for_auto_col($table2, $primary1) || '';
-        debug(3, "Auto column $auto indexed") if ($auto);
-        my $changes = '';
-        my $k = 3;
-        $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
         $changes .= $auto ? _index_auto_col($table2, $auto, $self->{opts}{'no-old-defs'}) : '';
+        if ($auto) {
+            debug(3, "Auto column $auto indexed");
+            my $auto_index_name = "mysqldiff_".md5_hex($name1."_".$auto);
+            $self->{temporary_indexes}{$auto_index_name} = $auto;
+        }
         my $pks = $table1->primary_parts();
         my $pk_ops = 1; 
         my $fks;
@@ -782,21 +782,29 @@ sub _diff_primary_key {
             $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
             $changes .= "\n";
         }
-        # If PK's column was added, we mustn't add itself
-        if ($self->{added_pk}) {
-            $k = 8; # In this case we must to do all work before column will be added
+        if ($primary1 && !$primary2) {
+            debug(2,"primary key '$primary1' dropped");
+            $k = 4; # DROP PK FIRST
         } else {
-            debug(3, "PK $primary2 was added");
-            $changes .= "ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n"; 
-            if ($pk_ops) {
-                $k = 0; # In this case we must to do all work in the final
-            }
-        }   
-        debug(3, "Auto column's $auto index was dropped") if ($auto);
-        $changes .= "ALTER TABLE $name1 DROP INDEX $auto;\n"    if($auto);
-        push @changes, [$changes, {'k' => $k}];
+            debug(2,"primary key changed");
+            # If PK's column was added, we mustn't add itself
+            if ($self->{added_pk}) {
+                debug(3, "PK was already added");
+                $k = 8; # In this case we must to do all work before column will be added
+            } else {
+                debug(3, "PK $primary2 was added");
+                $changes .= "ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n"; 
+                if ($pk_ops) {
+                    $k = 0; # In this case we must to do all work in the final
+                }
+            }   
+        }               
     }
-
+    
+    if ($changes) {
+        $changes = "-- $name1\n" . $changes unless !$self->{opts}{'list-tables'};
+        push @changes, [$changes, {'k' => $k}]; 
+    }
     return @changes;
 }
 
@@ -875,11 +883,11 @@ sub _check_for_auto_col {
 
     $fields =~ s/^\s*\((.*)\)\s*$/$1/g; # strip brackets if any
     my @fields = split /\s*,\s*/, $fields;
-    
+
     for my $field (@fields) {
         next if (!$table->field($field));
         next if($table->field($field) !~ /auto_increment/i);
-        next if($table->isa_index($field));
+        #next if($table->isa_index($field));
         next if($primary && $table->isa_primary($field));
 
         return $field;
@@ -890,11 +898,12 @@ sub _check_for_auto_col {
 
 sub _index_auto_col {
     my ($table, $field, $comment) = @_;
+    my $name = $table->name;
+    my $auto_index_name = "mysqldiff_".md5_hex($name."_".$field);
     if (!($field =~ /\(.*?\)/)) {
         $field = '(' . $field . ')';
     }
-    my $name = $table->name;
-    my $changes = "ALTER TABLE $name ADD INDEX $field;";
+    my $changes = "ALTER TABLE $name ADD INDEX $auto_index_name $field;";
     $changes .= " # auto columns must always be indexed"
                         unless $comment;
     return $changes. "\n";
@@ -937,14 +946,19 @@ sub _diff_options {
     }
 
     if ($options1 ne $options2) {
+        my $opt_change = '';
         debug(2, "$name options was changed");
-        $change .= "-- $name\n" unless !$self->{opts}{'list-tables'};
-        if (!($options2 =~ /COMMENT='.*?'/)) {
+        $opt_change .= "-- $name\n" unless !$self->{opts}{'list-tables'};
+        if (!($options2 =~ /COMMENT='.*?'/i)) {
             $options2 = "COMMENT='' " . $options2;
         }
-        $change .= "ALTER TABLE $name $options2;";
-        $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
-        $change .= "\n";
+        $opt_change .= "ALTER TABLE $name $options2;";
+        $opt_change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
+        $opt_change .= "\n";
+        if ($options2 =~ /PARTITION BY/i) {
+            #   TODO: fix for recreate partitions where partition columns was changed
+        } 
+        $change .= $opt_change;
     }
 
     if ($change) {
