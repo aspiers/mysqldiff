@@ -136,7 +136,14 @@ sub diff {
 
     debug(1, "\ncomparing databases");
 
-    for my $table1 ($self->db1->tables()) {
+    my $tables_order = $self->db1->get_order('tables');
+    my $views_order = $self->db1->get_order('views');
+    my $routines_order = $self->db1->get_order('routines');
+    my @tables_keys = sort { $tables_order->{$a->name()} <=> $tables_order->{$b->name()} } $self->db1->tables();
+    my @views_keys = sort { $views_order->{$a->name()} <=> $views_order->{$b->name()} } $self->db1->views();
+    my @routines_keys = sort { $routines_order->{$a->name()} <=> $routines_order->{$b->name()} } $self->db1->routines();
+
+    for my $table1 (@tables_keys) {
         my $name = $table1->name();
         debug(1, "looking at table '$name' in first database");
         debug(6, "table 1 $name = ".Dumper($table1));
@@ -152,28 +159,27 @@ sub diff {
             } else {
                 debug(1,"table '$name' dropped");
                 my $change = '';
-                $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                $change = $self->add_header($table1, "drop_table") unless !$self->{opts}{'list-tables'};
                 $change .= "DROP TABLE $name;\n\n";
                 push @changes, [$change, {'k' => 8}]                 
                     unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; # drop table after all
             }
         } else {
-                if (!$self->{'used_tables'}{$name}) {
-                    $self->{'used_tables'}{$name} = 1;
-                    my $additional_tables = '';
-                    my $additional_fk_tables = $table1->fk_tables();
-                    if ($additional_fk_tables) {
-                        $additional_tables = "|" . join "|", keys %$additional_fk_tables;
-                        push @changes, $self->_add_ref_tables($additional_fk_tables);
-                    }
-                    my $change = '';
-                    $change = "$name$additional_tables\n";
-                    push @changes, [$change, {'k' => 1}];
+            if (!$self->{'used_tables'}{$name}) {
+                $self->{'used_tables'}{$name} = 1;
+                my $additional_tables = '';
+                my $additional_fk_tables = $table1->fk_tables();
+                if ($additional_fk_tables) {
+                    push @changes, $self->_add_ref_tables($additional_fk_tables);
                 }
+                my $change = '';
+                $change = $self->add_header($table1, "ref_table");
+                push @changes, [$change, {'k' => 1}];
+            }
         }
     }
 
-    for my $routine1 ($self->db1->routines()) {
+    for my $routine1 (@routines_keys) {
         my $name = $routine1->name();
         my $r_type = $routine1->type();
         debug(1, "loooking at $r_type '$name' in first database");
@@ -188,7 +194,7 @@ sub diff {
                 my $r_pars2 = $routine2->params();
                 if ( ($r_opts1 ne $r_opts2) || ($r_body1 ne $r_body2) || ($r_pars1 ne $r_pars2) ) {
                     write_log($r_type.'_'.$name.'.sql', "Options 1: $r_opts1\nOptions 2: $r_opts2\nBody 1: $r_body1\nBody 2: $r_body2\nParams 1: $r_pars1\nParams 2: $r_pars2");
-                    my $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                    my $change = $self->add_header($routine1, "change_routine") unless !$self->{opts}{'list-tables'};
                     $change .= "DROP $r_type $name;\n";
                     $change .= "DELIMITER ;;\n";
                     $change .= $routine2->def() . ";;\n";
@@ -199,7 +205,7 @@ sub diff {
             } else {
                 debug(1, "$r_type '$name' dropped;");
                 my $change = '';
-                $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                $change = $self->add_header($routine1, "drop_routine") unless !$self->{opts}{'list-tables'};
                 $change .= "DROP $r_type $name;\n";
                 push @changes, [$change, {'k' => 5}]                 
                          unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
@@ -207,7 +213,7 @@ sub diff {
         }
     }
 
-    for my $view1 ($self->db1->views()) {
+    for my $view1 (@views_keys) {
         my $name = $view1->name();
         debug(1, "looking at view '$name' in first database");
         if (!$self->{opts}{'refs'}) {
@@ -226,7 +232,7 @@ sub diff {
                          ($opts1->{'algorithm'} ne $opts2->{'algorithm'})
                        ) {
                         my $change = '';
-                        $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                        $change = $self->add_header($view1, "change_view") unless !$self->{opts}{'list-tables'};
                         $change .= "ALTER ALGORITHM=$opts2->{'algorithm'} DEFINER=CURRENT_USER SQL SECURITY $opts2->{'security'} VIEW $name $f2 AS ($sel2) $opts2->{'trail'};\n";
                         push @changes, [$change, {'k' => 5}]                 
                             unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
@@ -234,7 +240,7 @@ sub diff {
                 } else {
                     debug(1, "view '$name' dropped");
                     my $change = '';
-                    $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                    $change = $self->add_header($view1, "drop_view") unless !$self->{opts}{'list-tables'};
                     $change .= "DROP VIEW $name;\n\n";
                     push @changes, [$change, {'k' => 6}]                 
                          unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'}; 
@@ -243,7 +249,13 @@ sub diff {
     }
 
     if (!$self->{opts}{'refs'}) {
-        for my $table2 ($self->db2->tables()) {
+        $tables_order = $self->db2->get_order('tables');
+        $views_order = $self->db2->get_order('views');
+        $routines_order = $self->db2->get_order('routines');
+        @tables_keys = sort { $tables_order->{$a->name()} <=> $tables_order->{$b->name()} } $self->db2->tables();
+        @views_keys = sort { $views_order->{$a->name()} <=> $views_order->{$b->name()} } $self->db2->views();
+        @routines_keys = sort { $routines_order->{$a->name()} <=> $routines_order->{$b->name()} } $self->db2->routines();
+        for my $table2 (@tables_keys) {
             my $name = $table2->name();
             debug(1, "looking at table '$name' in second database");
             debug(6, "table 2 $name = ".Dumper($table2));
@@ -258,23 +270,31 @@ sub diff {
                 my $additional_tables = '';
                 my $additional_fk_tables = $table2->fk_tables();
                 if ($additional_fk_tables) {
-                    $additional_tables = "|" . join "|", keys %$additional_fk_tables;
                     push @changes, $self->_add_ref_tables($additional_fk_tables);
                 }
                 my $change = '';
-                $change = "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
+                $change = $self->add_header($table2, "add_table", 1) unless !$self->{opts}{'list-tables'};
                 $change .= $table2->def() . "\n";
                 push @changes, [$change, {'k' => 6}]
                     unless $self->{opts}{'only-both'};
+                if (!$self->{opts}{'only-both'}) {
+                    my $fks = $table2->foreign_key();
+                    for my $fk (keys %$fks) {
+                        debug(3, "FK $fk for created table $name added");
+                        $change = $self->add_header($table2, 'add_fk') unless !$self->{opts}{'list-tables'};
+                        $change .= "ALTER TABLE $name ADD CONSTRAINT $fk FOREIGN KEY $fks->{$fk};\n";
+                        push @changes, [$change, {'k' => 1}];
+                    }
+                }
             }
         }
-        for my $routine2 ($self->db2->routines()) {
+        for my $routine2 (@routines_keys) {
             my $name = $routine2->name();
             my $r_type = $routine2->type();
             debug(1, "looking at $r_type '$name' in second database");
             if (!$self->db1->routine_by_name($name, $r_type)) {
                 my $change = '';
-                $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                $change = $self->add_header($routine2, "add_routine") unless !$self->{opts}{'list-tables'};
                 $change .= "DELIMITER ;;\n";
                 $change .= $routine2->def(). ";;\n";
                 $change .= "DELIMITER ;\n";
@@ -282,12 +302,12 @@ sub diff {
                     unless $self->{opts}{'only-both'};
             }
         }
-        for my $view2 ($self->db2->views()) {
+        for my $view2 (@views_keys) {
             my $name = $view2->name();
             debug(1, "looking at view '$name' in second database");
             if (!$self->db1->view_by_name($name)) {
                 my $change = '';
-                $change = "-- $name\n" unless !$self->{opts}{'list-tables'};
+                $change = $self->add_header($view2, "add_view") unless !$self->{opts}{'list-tables'};
                 $change .= $view2->def() . "\n";
                 push @changes, [$change, {'k' => 5}]
                     unless $self->{opts}{'only-both'};
@@ -316,31 +336,32 @@ sub diff {
 sub _add_ref_tables {
     my ($self, $tables) = @_;
     my @changes = ();
-    for my $name (keys %$tables) {
-        if (!$self->{'used_tables'}{$name}) {
-            $self->{'used_tables'}{$name} = 1;
-            my $table;
-            if (!$self->{opts}{'refs'}) {
-                $table = $self->db2->table_by_name($name);
-            } else {
-                $table = $self->db1->table_by_name($name);
-            }
-            if ($table) {
-                debug(2, "Related table: '$name'");
-                my $additional_tables = '';
-                my $additional_fk_tables = $table->fk_tables();
-                if ($additional_fk_tables) {
-                        $additional_tables = "|" . join "|", keys %$additional_fk_tables;
-                        push @changes, $self->_add_ref_tables($additional_fk_tables);
-                }
-                my $change = '';
+    if ($tables) {
+        for my $name (keys %$tables) {
+            if (!$self->{'used_tables'}{$name}) {
+                $self->{'used_tables'}{$name} = 1;
+                my $table;
                 if (!$self->{opts}{'refs'}) {
-                    $change = "-- $name$additional_tables\n" unless !$self->{opts}{'list-tables'};
-                    $change .= $table->def()."\n";
+                    $table = $self->db2->table_by_name($name);
                 } else {
-                    $change = "$name$additional_tables\n";
+                    $table = $self->db1->table_by_name($name);
                 }
-                push @changes, [$change, {'k' => 6}];
+                if ($table) {
+                    debug(2, "Related table: '$name'");
+                    my $additional_tables = '';
+                    my $additional_fk_tables = $table->fk_tables();
+                    if ($additional_fk_tables) {
+                            push @changes, $self->_add_ref_tables($additional_fk_tables);
+                    }
+                    my $change = '';
+                    if (!$self->{opts}{'refs'}) {
+                        $change = $self->add_header($table, "add_table", 1) unless !$self->{opts}{'list-tables'};
+                        $change .= $table->def()."\n";
+                    } else {
+                        $change = $self->add_header($table, "ref_table", 1) . "\n";
+                    }
+                    push @changes, [$change, {'k' => 6}];
+                }
             }
         }
     }
@@ -487,11 +508,11 @@ sub _diff_fields {
                             }
                         } else {
                             if ($f2 =~ /DEFAULT NULL/) {
-                                
+                                # TODO: fix for re-change columns order
                             }
                         }  
                         my $change = '';
-                        $change =  "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                        $change =  $self->add_header($table2, "change_column") unless !$self->{opts}{'list-tables'};
                         $change .= "ALTER TABLE $name1 CHANGE COLUMN $field $field $f2$pk;";
                         $change .= " # was $f1" unless $self->{opts}{'no-old-defs'};
                         $change .= "\n";
@@ -512,7 +533,7 @@ sub _diff_fields {
             } else {
                 debug(3,"field '$field' removed");
                 my $change = '';
-                $change = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                $change = $self->add_header($table1, "drop_column") unless !$self->{opts}{'list-tables'};
                 $change .= "ALTER TABLE $name1 DROP COLUMN $field;";
                 $change .= " # was $fields1->{$field}" unless $self->{opts}{'no-old-defs'};
                 $change .= "\n";
@@ -605,7 +626,7 @@ sub _diff_fields {
                         $self->{added_pk} = 1;
                 }
                 my $change = '';
-                $change = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                $change =  $self->add_header($table2, "add_column") unless !$self->{opts}{'list-tables'};
                 $change .= "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field}$pk;\n";
                 if (!$alters->{$field}) {
                     $alters->{$field} = 1;
@@ -659,7 +680,7 @@ sub _diff_indices {
                     my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 
                                    $table2->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
                     my $changes = '';
-                    $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                    $changes = $self->add_header($table2, "change_index") unless !$self->{opts}{'list-tables'};
                     my $index_parts = $table1->indices_parts($index);
                     if ($index_parts) {
                         for my $index_part (keys %$index_parts) {
@@ -681,7 +702,7 @@ sub _diff_indices {
             } else {
                 my $auto = _check_for_auto_col($table2, $indices1->{$index}, 1) || '';
                 my $changes = '';
-                $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                $changes = $self->add_header($table1, "drop_index") unless !$self->{opts}{'list-tables'};
                 $changes .= $auto ? _index_auto_col($table1, $indices1->{$index}, $self->{opts}{'no-old-defs'}) : '';
                 my $index_parts = $table1->indices_parts($index);
                 if ($index_parts) {
@@ -714,7 +735,7 @@ sub _diff_indices {
                 $opts = $opts2->{$index};
             }
             my $changes = '';
-            $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+            $changes = $self->add_header($table2, "add_index") unless !$self->{opts}{'list-tables'};
             $changes .= "ALTER TABLE $name1 ADD $new_type $index ($indices2->{$index})$opts;\n";
             push @changes, [$changes, {'k' => 3}];
         }
@@ -741,12 +762,13 @@ sub _diff_primary_key {
         }
         debug(2,"primary key '$primary2' added");
         my $changes = '';
-        $changes .= "-- $name1\n" unless !$self->{opts}{'list-tables'};
+        $changes .= $self->add_header($table2, "add_pk") unless !$self->{opts}{'list-tables'};
         $changes .= "ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
         return ["$changes\n", {'k' => 3}]; # ADD/CHANGE PK AFTER COLUMN ADD
     }
   
     my $changes = '';
+    my $action_type = '';
     my $k = 3;
     if ( ($primary1 && !$primary2) || ($primary1 ne $primary2) ) {
         my $auto = _check_for_auto_col($table2, $primary1) || '';
@@ -785,8 +807,10 @@ sub _diff_primary_key {
         if ($primary1 && !$primary2) {
             debug(2,"primary key '$primary1' dropped");
             $k = 4; # DROP PK FIRST
+            $action_type = 'drop_pk';
         } else {
             debug(2,"primary key changed");
+            $action_type = 'change_pk';
             # If PK's column was added, we mustn't add itself
             if ($self->{added_pk}) {
                 debug(3, "PK was already added");
@@ -802,7 +826,7 @@ sub _diff_primary_key {
     }
     
     if ($changes) {
-        $changes = "-- $name1\n" . $changes unless !$self->{opts}{'list-tables'};
+        $changes = $self->add_header($table1, $action_type) . $changes unless !$self->{opts}{'list-tables'};
         push @changes, [$changes, {'k' => $k}]; 
     }
     return @changes;
@@ -828,28 +852,23 @@ sub _diff_foreign_key {
                 if($fks1->{$fk} ne $fks2->{$fk})  
                 {
                     debug(3,"foreign key '$fk' changed");
-                    my $additional_tables = '';
-                    my $additional_fk_tables = $table2->fk_tables();
-                    if ($additional_fk_tables) {
-                        $additional_tables = "|" . join "|", keys %$additional_fk_tables;
-                    }   
                     my $changes = '';
-                    $changes = "-- $name1$additional_tables\n" unless !$self->{opts}{'list-tables'};
+                    $changes = $self->add_header($table1, 'change_fk') unless !$self->{opts}{'list-tables'};
                     $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
                     $changes .= " # was CONSTRAINT $fk FOREIGN KEY $fks1->{$fk}"
                         unless $self->{opts}{'no-old-defs'};
                     $changes .= "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";                 
-                    push @changes, [$changes, {'k' => 1}]; # ADD/CHANGE FK LAST
+                    push @changes, [$changes, {'k' => 6}]; # CHANGE FK before column for it may be changed
                 }
             } else {
                 debug(3,"foreign key '$fk' removed");
                 my $changes = '';
-                $changes = "-- $name1\n" unless !$self->{opts}{'list-tables'};
+                $changes = $self->add_header($table1, 'drop_fk') unless !$self->{opts}{'list-tables'};
                 $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
                 $changes .= " # was CONSTRAINT $fk FOREIGN KEY $fks1->{$fk}"
                         unless $self->{opts}{'no-old-defs'};
                 $changes .= "\n";
-                push @changes, [$changes, {'k' => 5}]; # DROP FK FIRST
+                push @changes, [$changes, {'k' => 6}]; # DROP FK FIRST
             }
         }
     }
@@ -858,15 +877,10 @@ sub _diff_foreign_key {
         for my $fk (keys %$fks2) {
             next    if($fks1 && $fks1->{$fk});
             debug(3, "foreign key '$fk' added");
-            my $additional_tables = '';
-            my $additional_fk_tables = $table2->fk_tables();
-            if ($additional_fk_tables) {
-                $additional_tables = "|" . join "|", keys %$additional_fk_tables;
-            }
             my $change = '';
-            $change = "-- $name1$additional_tables\n" unless !$self->{opts}{'list-tables'};
+            $change = $self->add_header($table2, 'add_fk') unless !$self->{opts}{'list-tables'};
             $change .= "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
-            push @changes, [$change, {'k' => 1}];
+            push @changes, [$change, {'k' => 1}]; # add FK after all
         }
     }
 
@@ -911,7 +925,7 @@ sub _index_auto_col {
 
 sub _diff_options {
     my ($self, $table1, $table2) = @_;
-    my $name     = $table1->name();
+    my $name = $table1->name();
     debug(2, "looking at options of $name");
     my @changes;
     my $change = '';
@@ -922,7 +936,7 @@ sub _diff_options {
                 debug(3, "Column $column was already dropped, so we must not drop temporary index");
             } else {
                 debug(3, "Dropped temporary index $temporary_index");
-                $change .= "-- $name\n" unless !$self->{opts}{'list-tables'};
+                $change .= $self->add_header($table1, 'drop_temporary_index') unless !$self->{opts}{'list-tables'};
                 $change .= "ALTER TABLE $name DROP INDEX $temporary_index;\n";
             }
         }
@@ -946,19 +960,31 @@ sub _diff_options {
     }
 
     if ($options1 ne $options2) {
-        my $opt_change = '';
         debug(2, "$name options was changed");
-        $opt_change .= "-- $name\n" unless !$self->{opts}{'list-tables'};
+        $change .= $self->add_header($table1, 'change_options') unless !$self->{opts}{'list-tables'};
         if (!($options2 =~ /COMMENT='.*?'/i)) {
             $options2 = "COMMENT='' " . $options2;
         }
-        $opt_change .= "ALTER TABLE $name $options2;";
-        $opt_change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
-        $opt_change .= "\n";
-        if ($options2 =~ /PARTITION BY/i) {
-            #   TODO: fix for recreate partitions where partition columns was changed
+        if ($options2 =~ /PARTITION BY(.*)/i) {
+            my $part2 = $1;
+            if ($options1 =~ /PARTITION BY(.*)/i) {
+                my $part1 = $1;
+                if ($part2 ne $part1) {
+                    debug(4, "PARTITION of table '$name' in first database is $part1, but in second is $part2");
+                    my $opt_change = $self->add_header($table1, 'drop_partitioning') unless !$self->{opts}{'list-tables'};
+                    $opt_change .= "ALTER TABLE $name REMOVE PARTITIONING;\n";
+                    push @changes, [$opt_change, {'k' => 8}]; 
+                    # alternatively we must parse partition definition and get all fields (which may be in functions, for example)
+                } else {
+                    debug(4, "PARTITION of table '$name' in all databases are equal\nFirst: $part1\nSecond: $part2");
+                }
+            } else {
+                debug(3, "No partitions in table in first database, so we just add them");
+            }
         } 
-        $change .= $opt_change;
+        $change .= "ALTER TABLE $name $options2;";
+        $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
+        $change .= "\n";
     }
 
     if ($change) {
@@ -1010,6 +1036,23 @@ sub _load_database {
 sub _debug_level {
     my ($self,$level) = @_;
     debug_level($level);
+}
+
+sub add_header {
+    my ($self, $table, $type, $add_referenced) = @_;
+    my $name = $table->name();
+    my $comment = "-- {\n-- \t\"name\" : \"$name\",\n";
+    $comment .= "-- \t\"action_type\" : \"$type\"";
+    if ($add_referenced) {
+        my $additional_fk_tables = $table->fk_tables();
+        if ($additional_fk_tables) {
+            $comment .= ",\n-- \t\"referenced_tables\" : [\n";
+            $comment .= "-- \t\t\"" . join "\",\n-- \t\t\"", keys %$additional_fk_tables; 
+            $comment .= "\"\n-- \t]";
+        }
+    }
+    $comment .= "\n-- }\n";
+    return $comment;
 }
 
 1;

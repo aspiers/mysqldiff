@@ -194,8 +194,10 @@ sub _parse {
     $self->{fields_links} = {};
     my $fields_order;
     my $start_order = 0;
+    my $line_copy = '';
     while (@lines) {
         $_ = shift @lines;
+        $line_copy = $_;
         if (!$end_found) {
             s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas 
         } else {
@@ -224,6 +226,8 @@ sub _parse {
             $column_name =~ s/\((.*?)\)/$1/;
             $self->{fk_by_column}{$_}{$key} = $val for(split(/,/, $column_name));
             $self->{fk_tables}{$tbl_name} = 1;
+            $line_copy = quotemeta($line_copy);
+            $self->{def} =~ s/$line_copy//gs;
             next;
         }
 

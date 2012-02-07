@@ -217,6 +217,18 @@ sub routine_by_name {
     return $self->{r_by_name}{$type}{$name};
 }
 
+=item * get_order( $type )
+
+Returns sorting order for entities of type $type (tables, views or routines)
+
+=cut
+
+sub get_order {
+    my ($self, $type) = @_;
+    my $k = $type."_order";
+    return $self->{$k};
+}
+
 =back
 
 =head1 FUNCTIONS
@@ -409,11 +421,17 @@ sub _parse_defs {
     $self->{_tables} = [];
     $self->{_views} = [];
     $self->{_routines} = [];
+    my $counters;
+    $counters->{tables} = 0;
+    $counters->{views} = 0;
+    $counters->{routines} = 0;
     for my $table (@tables) {
         debug(5, "  table def [$table]");
         if($table =~ /create\s+table/i) {
             my $obj = MySQL::Diff::Table->new(source => $self->{_source}, def => $table);
             $self->{_by_name}{$obj->name()} = $obj;
+            $self->{tables_order}{$obj->name()} = $counters->{tables};
+            $counters->{tables} += 1;
         } 
         elsif ($table =~ /create\s+.*?\s+view/is) {
             my $obj = MySQL::Diff::View->new(source => $self->{_source}, def => $table);
@@ -421,10 +439,14 @@ sub _parse_defs {
             if ($self->{_by_name}{$obj->name()}) {
                 delete($self->{_by_name}{$obj->name()});
             }
+            $self->{views_order}{$obj->name()} = $counters->{views};
+            $counters->{views} += 1;
         }
         elsif ($table =~ /create\s+.*?\s+(trigger|function|procedure)/is) {
             my $obj = MySQL::Diff::Routine->new(source => $self->{_source}, def => $table);
             $self->{r_by_name}{$obj->type()}{$obj->name()} = $obj;
+            $self->{routines_order}{$obj->name()} = $counters->{routines};
+            $counters->{routines} += 1;
             push @{$self->{_routines}}, $obj;
         }
     }
