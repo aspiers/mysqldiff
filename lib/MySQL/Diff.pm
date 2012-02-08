@@ -959,13 +959,14 @@ sub _diff_options {
       }
     }
 
+    my $opt_header = 'change_options';
     if ($options1 ne $options2) {
         debug(2, "$name options was changed");
-        $change .= $self->add_header($table1, 'change_options') unless !$self->{opts}{'list-tables'};
         if (!($options2 =~ /COMMENT='.*?'/i)) {
             $options2 = "COMMENT='' " . $options2;
         }
         if ($options2 =~ /PARTITION BY(.*)/i) {
+            $opt_header = 'change_partitions';
             my $part2 = $1;
             if ($options1 =~ /PARTITION BY(.*)/i) {
                 my $part1 = $1;
@@ -982,6 +983,7 @@ sub _diff_options {
                 debug(3, "No partitions in table in first database, so we just add them");
             }
         } 
+        $change .= $self->add_header($table1, $opt_header) unless !$self->{opts}{'list-tables'};
         $change .= "ALTER TABLE $name $options2;";
         $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
         $change .= "\n";

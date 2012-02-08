@@ -195,7 +195,11 @@ sub _parse {
     my $fields_order;
     my $start_order = 0;
     my $line_copy = '';
+    my $prev_line = '';
+    my $fk_line = 0;
     while (@lines) {
+        # save full copy of line as previous line
+        $prev_line = $line_copy unless $fk_line;
         $_ = shift @lines;
         $line_copy = $_;
         if (!$end_found) {
@@ -226,8 +230,9 @@ sub _parse {
             $column_name =~ s/\((.*?)\)/$1/;
             $self->{fk_by_column}{$_}{$key} = $val for(split(/,/, $column_name));
             $self->{fk_tables}{$tbl_name} = 1;
-            $line_copy = quotemeta($line_copy);
-            $self->{def} =~ s/$line_copy//gs;
+            $fk_line = 1;
+            my $q_line_copy = quotemeta($line_copy);
+            $self->{def} =~ s/$q_line_copy//gs;
             next;
         }
 
@@ -265,6 +270,11 @@ sub _parse {
             $opt_stripped =~ s/ AUTO_INCREMENT=(.*?) / /gs;
             $opt = quotemeta($opt);
             $self->{def} =~ s/$opt/$opt_stripped/gs;
+            # quote previous line
+            my $q_prev_line = quotemeta($prev_line);
+            # strip orphan commas from previous line
+            $prev_line =~ s/^(.*?),?$/$1/;
+            $self->{def} =~ s/$q_prev_line/$prev_line/gs;
             $opt = $opt_stripped;
             $table_end .= $opt;
             debug(4,"got table options '$opt'");
