@@ -173,7 +173,7 @@ sub diff {
                     push @changes, $self->_add_ref_tables($additional_fk_tables);
                 }
                 my $change = '';
-                $change = $self->add_header($table1, "ref_table");
+                $change = $self->add_header($table1, "ref_table", 1);
                 push @changes, [$change, {'k' => 1}];
             }
         }
