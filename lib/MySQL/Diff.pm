@@ -980,7 +980,7 @@ sub _diff_options {
         my $opt_change = '';
         if ($options2 =~ /(.*)PARTITION BY(.*)/is) {
             $opt_header = 'change_partitions';
-            my $before_part = $1;
+            $before_part = $1;
             my $part2 = $2;
             if ($options1 =~ /PARTITION BY(.*)/is) {
                 my $part1 = $1;
