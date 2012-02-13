@@ -509,6 +509,7 @@ sub _diff_fields {
                         } else {
                             if ($f2 =~ /DEFAULT NULL/) {
                                 # TODO: fix for re-change columns order
+                                
                             }
                         }  
                         my $change = '';
@@ -960,21 +961,26 @@ sub _diff_options {
     }
 
     my $opt_header = 'change_options';
+    my $k = 8;
     if ($options1 ne $options2) {
         debug(2, "$name options was changed");
         if (!($options2 =~ /COMMENT='.*?'/i)) {
             $options2 = "COMMENT='' " . $options2;
         }
-        if ($options2 =~ /PARTITION BY(.*)/i) {
+        my $before_part = $options2;
+        my $opt_change = '';
+        if ($options2 =~ /(.*)PARTITION BY(.*)/is) {
             $opt_header = 'change_partitions';
-            my $part2 = $1;
-            if ($options1 =~ /PARTITION BY(.*)/i) {
+            my $before_part = $1;
+            my $part2 = $2;
+            if ($options1 =~ /PARTITION BY(.*)/is) {
                 my $part1 = $1;
                 if ($part2 ne $part1) {
                     debug(4, "PARTITION of table '$name' in first database is $part1, but in second is $part2");
-                    my $opt_change = $self->add_header($table1, 'drop_partitioning') unless !$self->{opts}{'list-tables'};
+                    $opt_change = $self->add_header($table1, 'drop_partitioning') unless !$self->{opts}{'list-tables'};
                     $opt_change .= "ALTER TABLE $name REMOVE PARTITIONING;\n";
                     push @changes, [$opt_change, {'k' => 8}]; 
+                    $k = 0;
                     # alternatively we must parse partition definition and get all fields (which may be in functions, for example)
                 } else {
                     debug(4, "PARTITION of table '$name' in all databases are equal\nFirst: $part1\nSecond: $part2");
@@ -982,11 +988,16 @@ sub _diff_options {
             } else {
                 debug(3, "No partitions in table in first database, so we just add them");
             }
-        } 
-        $change .= $self->add_header($table1, $opt_header) unless !$self->{opts}{'list-tables'};
-        $change .= "ALTER TABLE $name $options2;";
-        $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
-        $change .= "\n";
+            # last, we must to change options (if there was partitions, options will be have substring of options without partitions definition)
+            $change .= $self->add_header($table1, $opt_header) unless !$self->{opts}{'list-tables'};
+            $change .= "ALTER TABLE $name $options2;";
+            $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
+            $change .= "\n";
+        }
+        # change table options without partitions first
+        $opt_change = $self->add_header($table1, 'change_options') unless !$self->{opts}{'list-tables'};
+        $opt_change .= "ALTER TABLE $name $before_part;\n";
+        push @changes, [$opt_change, {'k' => 8}]; 
     }
 
     if ($change) {
