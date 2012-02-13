@@ -474,6 +474,7 @@ sub _diff_fields {
                     {
                         debug(3,"field '$field' changed");
                         my $pk = '';
+                        my $weight = 5;
                         # if it's PK in second table...
                         if ($table2->isa_primary($field)) {
                             # if some parts of PK will be added later, we must not do any work with PK now
@@ -508,8 +509,12 @@ sub _diff_fields {
                             }
                         } else {
                             if ($f2 =~ /DEFAULT NULL/) {
-                                # TODO: fix for re-change columns order
-                                
+                                # we must to change this column later, if it was PK in table in first database
+                                # otherwise, it will be not 'DEFAULT NULL', but, for example, for INT column "NOT NULL DEFAULT '0'"
+                                if ($table1->isa_primary($field)) {
+                                    debug(3, "executing DEFAULT NULL change later for field '$field', because it was PK");
+                                    $weight = 3; 
+                                }
                             }
                         }  
                         my $change = '';
@@ -517,7 +522,6 @@ sub _diff_fields {
                         $change .= "ALTER TABLE $name1 CHANGE COLUMN $field $field $f2$pk;";
                         $change .= " # was $f1" unless $self->{opts}{'no-old-defs'};
                         $change .= "\n";
-                        my $weight = 5;
                         if ($f2 =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
                                 $weight = 1;
                         }
@@ -590,21 +594,11 @@ sub _diff_fields {
                 if ($fields2->{$field} =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
                     $weight = 1;
 
-                    $alters->{$field} = '';
-                    my $current_field = $field;
-                    while ($field_links->{'next_field'}) {
-                        my $next_field = $field_links->{'next_field'};
+                    $alters->{$field} = _add_routine_alters($field, $field_links, $table2);
+                    if ($alters->{$field}) {
+                        debug(3, 'repeat change columns after timestamp column');
                         $after_ts = 1;
-                        $alters->{$field} .= "ALTER TABLE $name1 CHANGE COLUMN $next_field $next_field $fields2->{$next_field} AFTER $current_field;\n";
-                        $field_links = $table2->fields_links($next_field);
-                        $current_field = $next_field;
                     }
-
-                    #if ($field_links->{'next_field'}) {
-                    #    my $next_field = $field_links->{'next_field'};
-                    #    $after_ts = 1;
-                    #    $alters->{$field} = "ALTER TABLE $name1 CHANGE COLUMN $next_field $next_field $fields2->{$next_field} AFTER $field;\n";
-                    #}
                 }
                 debug(3, "field '$field' added at position: $position") if ($position);
                 my $pk = $position;
@@ -623,6 +617,7 @@ sub _diff_fields {
                                 $pk = $position . ", ADD PRIMARY KEY $p";
                             }
                         }
+                        $alters->{$field} = _add_routine_alters($field, $field_links, $table2);
                         # Flag we add PK's column(s)
                         $self->{added_pk} = 1;
                 }
@@ -641,6 +636,20 @@ sub _diff_fields {
     }
 
     return @changes;
+}
+
+sub _add_routine_alters {
+    my ($current_field, $field_links, $table) = @_;
+    my $res = '';
+    my $fields = $table->fields;
+    my $name = $table->name;
+    while ($field_links->{'next_field'}) {
+        my $next_field = $field_links->{'next_field'};
+        $res .= "ALTER TABLE $name CHANGE COLUMN $next_field $next_field $fields->{$next_field} AFTER $current_field;\n";
+        $field_links = $table->fields_links($next_field);
+        $current_field = $next_field;
+    }
+    return $res;
 }
 
 sub _diff_indices {
