@@ -229,7 +229,8 @@ sub diff {
                          ($sel1 ne $sel2) || 
                          ($opts1->{'security'} ne $opts2->{'security'}) || 
                          ($opts1->{'trail'} ne $opts2->{'trail'}) || 
-                         ($opts1->{'algorithm'} ne $opts2->{'algorithm'})
+                         ($opts1->{'algorithm'} ne $opts2->{'algorithm'}) ||
+                         ($opts1->{'definer'} ne $opts2->{'definer'})
                        ) {
                         my $change = '';
                         $change = $self->add_header($view1, "change_view") unless !$self->{opts}{'list-tables'};
@@ -1002,6 +1003,14 @@ sub _diff_options {
             $change .= "ALTER TABLE $name $options2;";
             $change .= " # was " . ($options1 || 'blank') unless $self->{opts}{'no-old-defs'};
             $change .= "\n";
+        } else {
+            if ($options1 =~ /PARTITION BY/) {
+                # drop partitions
+                debug(3, "drop partitions from table '$name'");
+                $opt_change = $self->add_header($table1, 'drop_partitioning') unless !$self->{opts}{'list-tables'};
+                $opt_change .= "ALTER TABLE $name REMOVE PARTITIONING;\n";
+                push @changes, [$opt_change, {'k' => 8}]; 
+            }
         }
         # change table options without partitions first
         $opt_change = $self->add_header($table1, 'change_options') unless !$self->{opts}{'list-tables'};
