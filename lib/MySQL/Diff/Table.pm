@@ -265,9 +265,12 @@ sub _parse {
         if (/^\)\s*(.*?)$/) { # end of table definition
             $end_found = 1;
             my $opt = $1;
-            # strip AUTO_INCREMENT option from table definition and from options variable content
+            # strip AUTO_INCREMENT and other trash options from table definition and from options variable content
             my $opt_stripped = $opt;
-            $opt_stripped =~ s/ AUTO_INCREMENT=(.*?) / /gs;
+            my @strip_trash = ('AUTO_INCREMENT', 'AVG_ROW_LENGTH', 'CHECKSUM', 'ROW_FORMAT', 'DELAY_KEY_WRITE');
+            foreach my $strip_opt (@strip_trash) {
+                $opt_stripped =~ s/ $strip_opt=(\w+)//gs;
+            }
             $opt = quotemeta($opt);
             $self->{def} =~ s/$opt/$opt_stripped/gs;
             # quote previous line

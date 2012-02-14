@@ -492,6 +492,7 @@ sub _diff_fields {
                                         # if PK is non-composite we can to add PRIMARY KEY clause
                                         debug(3, "field $field was changed to be a primary key");
                                         $pk = ' PRIMARY KEY';
+                                        $weight = 1;
                                     } else {
                                         # This way, we can to add PRIMARY KEY __operator__ when last part of PK was obtained
                                         debug(3, "field $field is a part of composite primary key and it was changed");
@@ -499,6 +500,7 @@ sub _diff_fields {
                                             debug(3, "field '$field' is a last part of composite primary key, so when it changed, we must to add primary key then");
                                             my $p = $table2->primary_key();
                                             $pk = ", ADD PRIMARY KEY $p";
+                                            $weight = 1;
                                         }
                                     }
                                     # Flag we add PK's column(s)
@@ -545,7 +547,7 @@ sub _diff_fields {
                 $change .= "\n";
                 $self->{dropped_columns}{$field} = 1;
                 # column must be dropped last
-                push @changes, [$change, {'k' => 1}];
+                push @changes, [$change, {'k' => 2}];
             }
         }
     }
@@ -603,12 +605,15 @@ sub _diff_fields {
                 }
                 debug(3, "field '$field' added at position: $position") if ($position);
                 my $pk = $position;
+                my $header_text = 'add_column';
                 # if it is PK...
                 if ($table2->isa_primary($field)) {
                         if ($size == 1) {
                             # if PK is non-composite we can to add PRIMARY KEY clause
                             debug(3, "field $field is a primary key");
                             $pk = ' PRIMARY KEY' . $position;
+                            $weight = 1;
+                            $header_text = 'add_pk';
                         } else {
                             # This way, we can to add PRIMARY KEY __operator__ when last part of PK was obtained
                             debug(3, "field $field is a part of composite primary key");
@@ -616,6 +621,8 @@ sub _diff_fields {
                                 debug(3, "field '$field' is a last part of composite primary key");
                                 my $p = $table2->primary_key();
                                 $pk = $position . ", ADD PRIMARY KEY $p";
+                                $weight = 1;
+                                $header_text = 'add_pk';
                             }
                         }
                         $alters->{$field} = _add_routine_alters($field, $field_links, $table2);
@@ -623,7 +630,7 @@ sub _diff_fields {
                         $self->{added_pk} = 1;
                 }
                 my $change = '';
-                $change =  $self->add_header($table2, "add_column") unless !$self->{opts}{'list-tables'};
+                $change =  $self->add_header($table2, $header_text) unless !$self->{opts}{'list-tables'};
                 $change .= "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field}$pk;\n";
                 if (!$alters->{$field}) {
                     $alters->{$field} = 1;
@@ -695,12 +702,14 @@ sub _diff_indices {
                     my $index_parts = $table1->indices_parts($index);
                     if ($index_parts) {
                         for my $index_part (keys %$index_parts) {
-                            my $fks = $table1->get_fk_by_col($index_part);
+                            my $fks = $table2->get_fk_by_col($index_part);
                             if ($fks) {
                                 my $temp_index_name = "temp_".md5_hex($index_part);
-                                debug(3, "Added temporary index $temp_index_name for INDEX's field $index_part because there is FKs for this field");
-                                $self->{temporary_indexes}{$temp_index_name} = $index_part;
-                                $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($index_part);\n";
+                                if (!$self->{temporary_indexes}{$temp_index_name}) {
+                                    debug(3, "Added temporary index $temp_index_name for INDEX's field $index_part because there is FKs for this field");
+                                    $self->{temporary_indexes}{$temp_index_name} = $index_part;
+                                    $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($index_part);\n";
+                                }
                             }
                         }
                     }
@@ -715,15 +724,24 @@ sub _diff_indices {
                 my $changes = '';
                 $changes = $self->add_header($table1, "drop_index") unless !$self->{opts}{'list-tables'};
                 $changes .= $auto ? _index_auto_col($table1, $indices1->{$index}, $self->{opts}{'no-old-defs'}) : '';
+                if ($auto) {
+                    debug(3, "Auto column $auto indexed");
+                    my $auto_index_name = "mysqldiff_".md5_hex($name1."_".$auto);
+                    if (!$self->{temporary_indexes}{$auto_index_name}) {
+                        $self->{temporary_indexes}{$auto_index_name} = $auto;
+                    }
+                }
                 my $index_parts = $table1->indices_parts($index);
                 if ($index_parts) {
                     for my $index_part (keys %$index_parts) {
-                        my $fks = $table1->get_fk_by_col($index_part);
+                        my $fks = $table2->get_fk_by_col($index_part);
                         if ($fks) {
                             my $temp_index_name = "temp_".md5_hex($index_part);
-                            debug(3, "Added temporary index $temp_index_name for INDEX's field $index_part because there is FKs for this field");
-                            $self->{temporary_indexes}{$temp_index_name} = $index_part;
-                            $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($index_part);\n";
+                            if (!$self->{temporary_indexes}{$temp_index_name}) {
+                                debug(3, "Added temporary index $temp_index_name for INDEX's field $index_part because there is FKs for this field");
+                                $self->{temporary_indexes}{$temp_index_name} = $index_part;
+                                $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($index_part);\n";
+                            }
                         }
                     }
                 }
@@ -745,10 +763,19 @@ sub _diff_indices {
             if ($opts2->{$index}) {
                 $opts = $opts2->{$index};
             }
+            my $weight = 3;
+            my $parts = $table2->indices_parts($index);
+            # indexes for PK columns 
+            for my $ip (keys %$parts) {
+                if ($table2->isa_primary($ip)) {
+                    $weight = 1;
+                    last;
+                }
+            }
             my $changes = '';
             $changes = $self->add_header($table2, "add_index") unless !$self->{opts}{'list-tables'};
             $changes .= "ALTER TABLE $name1 ADD $new_type $index ($indices2->{$index})$opts;\n";
-            push @changes, [$changes, {'k' => 3}];
+            push @changes, [$changes, {'k' => $weight}];
         }
     }
 
@@ -775,19 +802,22 @@ sub _diff_primary_key {
         my $changes = '';
         $changes .= $self->add_header($table2, "add_pk") unless !$self->{opts}{'list-tables'};
         $changes .= "ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
-        return ["$changes\n", {'k' => 3}]; # ADD/CHANGE PK AFTER COLUMN ADD
+        return ["$changes\n", {'k' => 3}]; 
     }
   
     my $changes = '';
     my $action_type = '';
     my $k = 3;
     if ( ($primary1 && !$primary2) || ($primary1 ne $primary2) ) {
+        debug(2, "primary key difference detected");
         my $auto = _check_for_auto_col($table2, $primary1) || '';
         $changes .= $auto ? _index_auto_col($table2, $auto, $self->{opts}{'no-old-defs'}) : '';
         if ($auto) {
             debug(3, "Auto column $auto indexed");
             my $auto_index_name = "mysqldiff_".md5_hex($name1."_".$auto);
-            $self->{temporary_indexes}{$auto_index_name} = $auto;
+            if (!$self->{temporary_indexes}{$auto_index_name}) {
+                $self->{temporary_indexes}{$auto_index_name} = $auto;
+            }
         }
         my $pks = $table1->primary_parts();
         my $pk_ops = 1; 
@@ -800,17 +830,19 @@ sub _diff_primary_key {
             # store result, all of parts was dropped or not
             $pk_ops = $pk_ops && $self->{dropped_columns}{$pk};
             # for every part we also get foreign keys and add temporary indexes
-            $fks = $table1->get_fk_by_col($pk);
+            $fks = $table2->get_fk_by_col($pk);
             if ($fks) {
                 my $temp_index_name = "temp_".md5_hex($pk);
-                debug(3, "Added temporary index $temp_index_name for PK's field $pk because there is FKs for this field");
-                $self->{temporary_indexes}{$temp_index_name} = $pk;
-                $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($pk);\n";
+                if (!$self->{temporary_indexes}{$temp_index_name}) {
+                    debug(3, "Added temporary index $temp_index_name for PK's field $pk because there is FKs for this field");
+                    $self->{temporary_indexes}{$temp_index_name} = $pk;
+                    $changes .= "ALTER TABLE $name1 ADD INDEX $temp_index_name ($pk);\n";
+                }
             }
         }
         # If PK's column(s) ALL was dropped, we mustn't drop itself; for auto columns we already create indexes
         if (!$pk_ops) {
-            debug(3, "PK $primary1 was dropped");
+            debug(2, "PK $primary1 was dropped");
             $changes .= "ALTER TABLE $name1 DROP PRIMARY KEY;";
             $changes .= " # was $primary1" unless $self->{opts}{'no-old-defs'};
             $changes .= "\n";
@@ -864,7 +896,7 @@ sub _diff_foreign_key {
                 {
                     debug(3,"foreign key '$fk' changed");
                     my $changes = '';
-                    $changes = $self->add_header($table1, 'change_fk') unless !$self->{opts}{'list-tables'};
+                    $changes = $self->add_header($table1, 'change_fk', 1) unless !$self->{opts}{'list-tables'};
                     $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
                     $changes .= " # was CONSTRAINT $fk FOREIGN KEY $fks1->{$fk}"
                         unless $self->{opts}{'no-old-defs'};
@@ -889,7 +921,7 @@ sub _diff_foreign_key {
             next    if($fks1 && $fks1->{$fk});
             debug(3, "foreign key '$fk' added");
             my $change = '';
-            $change = $self->add_header($table2, 'add_fk') unless !$self->{opts}{'list-tables'};
+            $change = $self->add_header($table2, 'add_fk', 1) unless !$self->{opts}{'list-tables'};
             $change .= "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
             push @changes, [$change, {'k' => 1}]; # add FK after all
         }
@@ -910,10 +942,16 @@ sub _check_for_auto_col {
     my @fields = split /\s*,\s*/, $fields;
 
     for my $field (@fields) {
-        next if (!$table->field($field));
-        next if($table->field($field) !~ /auto_increment/i);
+        my $not_is_field = (!$table->field($field));
+        debug(3, "field '$field' not exists in table in second database") if $not_is_field;
+        next if $not_is_field;
+        my $not_AI = ($table->field($field) !~ /auto_increment/i);
+        debug(3, "field '$field' not AUTO_INCREMENT in table in second database") if $not_AI;
+        next if $not_AI;
         #next if($table->isa_index($field));
-        next if($primary && $table->isa_primary($field));
+        my $pk = ($primary && $table->isa_primary($field));
+        debug(3, "field '$field' is PK in table in second database") if $pk;
+        next if $pk;
 
         return $field;
     }
