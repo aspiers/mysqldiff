@@ -268,6 +268,9 @@ sub _parse {
             # strip AUTO_INCREMENT and other trash options from table definition and from options variable content
             my $opt_stripped = $opt;
             my @strip_trash = ('AUTO_INCREMENT', 'AVG_ROW_LENGTH', 'CHECKSUM', 'ROW_FORMAT', 'DELAY_KEY_WRITE');
+            if ($opt =~ /MyISAM/i) {
+                @strip_trash = ('AUTO_INCREMENT');
+            }
             foreach my $strip_opt (@strip_trash) {
                 $opt_stripped =~ s/ $strip_opt=(\w+)//gs;
             }
