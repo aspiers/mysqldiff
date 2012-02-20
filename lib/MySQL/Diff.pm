@@ -225,12 +225,12 @@ sub diff {
                     my $sel2 = $view2->select();
                     my $opts1 = $view1->options();
                     my $opts2 = $view2->options();
+
                     if ( ($f1 ne $f2) || 
                          ($sel1 ne $sel2) || 
                          ($opts1->{'security'} ne $opts2->{'security'}) || 
                          ($opts1->{'trail'} ne $opts2->{'trail'}) || 
-                         ($opts1->{'algorithm'} ne $opts2->{'algorithm'}) ||
-                         ($opts1->{'definer'} ne $opts2->{'definer'})
+                         ($opts1->{'algorithm'} ne $opts2->{'algorithm'}) 
                        ) {
                         my $change = '';
                         $change = $self->add_header($view1, "change_view") unless !$self->{opts}{'list-tables'};

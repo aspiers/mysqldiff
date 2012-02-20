@@ -32,6 +32,7 @@ our $VERSION = '0.46';
 # Libraries
 
 use Carp qw(:DEFAULT);
+use Data::Dumper;
 use MySQL::Diff::Utils qw(debug get_save_quotes);
 
 # ------------------------------------------------------------------------------
@@ -114,7 +115,7 @@ sub _parse {
     }
     $self->{def} =~ s/\n+/\n/gs;
     s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
-    if ($self->{def} =~ /^CREATE(?:\s+ALGORITHM=(.*?))?(?:\s+DEFINER=(.*?))?(?:\s+SQL\s+SECURITY\s+(DEFINER|INVOKER))?\s+VIEW\s+(.*?)\s+(\(.*?\)\s+)?AS\s+\(?(.*?)\)?\s+(?:WITH\s+(.*?))?;$/gis) {
+    if ($self->{def} =~ /^CREATE(?:\s+ALGORITHM=(.*?))?(?:\s+DEFINER=(.*?))?(?:\s+SQL\s+SECURITY\s+(DEFINER|INVOKER))?\s+VIEW\s+(.*?)\s+(\(.*?\)\s+)?AS\s+\(?(.*?)\)?\s*(?:WITH\s+(.*?))?;$/gis) {
         my ($alg, $definer, $security, $view_name, $view_def, $select, $options) = ($1, $2, $3, $4, $5, $6, $7);
         $self->{name} = $view_name; 
         $self->{select} = $select;
@@ -123,6 +124,8 @@ sub _parse {
         $self->{options}{'definer'} = 'CURRENT_USER';
         $self->{options}{'security'} = 'DEFINER';
         $self->{options}{'trail'} = '';
+        #warn "$view_name def: ".$self->{def};
+        #warn "$view_name dump: ".Dumper($self);
         if ($view_def) {
           $self->{fields} = $view_def;
         }
