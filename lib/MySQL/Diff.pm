@@ -765,9 +765,13 @@ sub _diff_indices {
             }
             my $weight = 3;
             my $parts = $table2->indices_parts($index);
-            # indexes for PK columns 
+            # indexes for PK and timestamp columns 
             for my $ip (keys %$parts) {
                 if ($table2->isa_primary($ip)) {
+                    $weight = 1;
+                    last;
+                }
+                if ($table2->field($ip) =~ /(CURRENT_TIMESTAMP(?:\(\))?|NOW\(\)|LOCALTIME(?:\(\))?|LOCALTIMESTAMP(?:\(\))?)/) {
                     $weight = 1;
                     last;
                 }
