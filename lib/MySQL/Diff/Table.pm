@@ -32,13 +32,13 @@ Parses a table definition into component parts.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.45';
 
 # ------------------------------------------------------------------------------
 # Libraries
 
 use Carp qw(:DEFAULT);
-use MySQL::Diff::Utils qw(debug);
+use MySQL::Diff::Utils qw(debug get_save_quotes);
 
 # ------------------------------------------------------------------------------
 
@@ -136,7 +136,10 @@ sub field           { my $self = shift; return $self->{fields}{$_[0]};  }
 sub fields          { my $self = shift; return $self->{fields};         }
 sub primary_key     { my $self = shift; return $self->{primary_key};    }
 sub indices         { my $self = shift; return $self->{indices};        }
+sub indices_opts    { my $self = shift; return $self->{indices_opts};   }
 sub options         { my $self = shift; return $self->{options};        }
+sub foreign_key     { my $self = shift; return $self->{foreign_key};    }
+sub fk_tables       { my $self = shift; return $self->{fk_tables};      }
 
 sub isa_field       { my $self = shift; return $_[0] && $self->{fields}{$_[0]}   ? 1 : 0; }
 sub isa_primary     { my $self = shift; return $_[0] && $self->{primary}{$_[0]}  ? 1 : 0; }
@@ -149,13 +152,14 @@ sub is_fulltext     { my $self = shift; return $_[0] && $self->{fulltext}{$_[0]}
 
 sub _parse {
     my $self = shift;
-
-    $self->{def} =~ s/`([^`]+)`/$1/gs;  # later versions quote names
+    debug(1,"parsing table def '$self->{def}'");
+    my $c = get_save_quotes();
+    if (!$c) {
+        $self->{def} =~ s/`([^`]+)`/$1/gs; # later versions quote names
+    }
     $self->{def} =~ s/\n+/\n/;
     $self->{lines} = [ grep ! /^\s*$/, split /(?=^)/m, $self->{def} ];
     my @lines = @{$self->{lines}};
-    debug(4,"parsing table def '$self->{def}'");
-
     my $name;
     if ($lines[0] =~ /^\s*create\s+table\s+(\S+)\s+\(\s*$/i) {
         $self->{name} = $1;
@@ -164,11 +168,16 @@ sub _parse {
     } else {
         croak "couldn't figure out table name";
     }
-
+    my $end_found = 0;
+    my $table_end = '';
     while (@lines) {
         $_ = shift @lines;
-        s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
-        debug(4,"line: [$_]");
+        if (!$end_found) {
+            s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas 
+        } else {
+            s/^\s*(.*?)\s*$/$1/; # trim whitespaces 
+        }
+        debug(1,"line: [$_]");
         if (/^PRIMARY\s+KEY\s+(.+)$/) {
             my $primary = $1;
             croak "two primary keys in table '$self->{name}': '$primary', '$self->{primary_key}'\n"
@@ -180,12 +189,28 @@ sub _parse {
 
             next;
         }
+        
+        if (/^(?:CONSTRAINT\s+(.*)?)?\s+FOREIGN\s+KEY\s+(.*)\s+REFERENCES\s+(.*?)\s+(.*)$/) {
+            my ($key, $column_name, $tbl_name, $opts) = ($1, $2, $3, $4);
+            croak "foreign key '$key' duplicated in table '$name'\n"
+                if $self->{foreign_key}{$key};
+            debug(4,"got foreign key $key with column name: $column_name, table name: $tbl_name, options: $opts");
+            my $val = $column_name.' REFERENCES '.$tbl_name.' '.$opts;
+            $self->{foreign_key}{$key} = $val;
+            $self->{fk_tables}{$tbl_name} = 1;
+            next;
+        }
 
-        if (/^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)(?:\s+USING\s+(?:BTREE|HASH|RTREE))?\s*\((.*)\)$/) {
-            my ($type, $key, $val) = ($1, $2, $3);
+        # Also can be /^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)(?:\s+USING\s+(?:BTREE|HASH|RTREE))?\s*\((.*)\)$/
+        # and /^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)\s+\((.*)\)(\s+USING\s+(?:BTREE|HASH|RTREE))?(.*)$/
+        if (/^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)\s+\((.*)\)(.*)$/) {
+            my ($type, $key, $val, $opts) = ($1, $2, $3, $4);
             croak "index '$key' duplicated in table '$name'\n"
                 if $self->{indices}{$key};
             $self->{indices}{$key} = $val;
+            if ($opts) {
+                $self->{indices_opts}{$key} = $opts;
+            }
             $self->{unique}{$key} = 1   if($type =~ /unique/i);
             debug(4, "got ", defined $self->{unique}{$key} ? 'unique ' : '', "index key '$key': ($val)");
             next;
@@ -201,32 +226,43 @@ sub _parse {
             next;
         }
 
-        if (/^\)\s*(.*?);$/) { # end of table definition
-            $self->{options} = $1;
-            debug(4,"got table options '$self->{options}'");
-            last;
+        if (/^\)\s*(.*?)$/) { # end of table definition
+            $end_found = 1;
+            my $opt = $1;
+            $opt =~ s/ AUTO_INCREMENT=(.*?) / /gs;
+            $table_end .= $opt;
+            debug(4,"got table options '$opt'");
+            next;
         }
 
         if (/^(\S+)\s*(.*)/) {
             my ($field, $fdef) = ($1, $2);
-            croak "definition for field '$field' duplicated in table '$name'\n"
-                if $self->{fields}{$field};
-            $self->{fields}{$field} = $fdef;
-            debug(4,"got field def '$field': $fdef");
+            if (!$end_found) {
+                $self->{fields}{$field} = $fdef;
+                debug(4,"got field def '$field': $fdef");   
+            } else {
+                $table_end .= " $field $fdef";
+            }
             next;
         }
 
         croak "unparsable line in definition for table '$self->{name}':\n$_";
     }
 
-    warn "table '$self->{name}' didn't have terminator\n"
-        unless defined $self->{options};
+    if ($table_end =~ /^\s*(.*?);$/s) {
+        $self->{options} = $table_end;
+        $self->{options} =~ s/;//gs;
+    } else {
+        warn "table '$self->{name}' didn't have terminator\n"
+            unless defined $self->{options};
+    }
 
     @lines = grep ! m{^/\*!40\d{3} .*? \*/;}, @lines;
     @lines = grep ! m{^(SET |DROP TABLE)}, @lines;
 
     warn "table '$self->{name}' had trailing garbage:\n", join '', @lines
         if @lines;
+        
 }
 
 1;

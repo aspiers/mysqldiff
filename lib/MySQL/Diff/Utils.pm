@@ -17,7 +17,7 @@ Currently contains the debug message handling routines.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.45';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -28,7 +28,7 @@ use IO::File;
 # Export Components
 
 use base qw(Exporter);
-our @EXPORT_OK = qw(debug_file debug_level debug);
+our @EXPORT_OK = qw(debug_file debug_level debug set_save_quotes get_save_quotes);
 
 # ------------------------------------------------------------------------------
 
@@ -64,6 +64,7 @@ is equal to or lower than the current debug level.
 {
     my $debug_file;
     my $debug_level = 0;
+    my $choice = 0;
 
     sub debug_file {
         my ($new_debug_file) = @_;
@@ -79,7 +80,7 @@ is equal to or lower than the current debug level.
 
     sub debug {
         my $level = shift;
-        return  unless($debug_level >= $level && @_);
+        return  unless($debug_level & 2**($level-1) && @_);
 
         if($debug_file) {
             if(my $fh = IO::File->new($debug_file, 'a+')) {
@@ -91,6 +92,15 @@ is equal to or lower than the current debug level.
         
         print STDERR @_,"\n";
     }
+    
+    sub set_save_quotes {
+        $choice = @_;
+    }
+    
+    sub get_save_quotes {
+        return $choice;
+    }
+    
 }
 
 1;

@@ -102,6 +102,43 @@ CREATE TABLE baz (
   KEY (firstname, surname)
 );
 ',
+
+  ref1 => '
+CREATE TABLE event (
+  event VARCHAR(15) NOT NULL,
+  PRIMARY KEY (event)
+);
+CREATE TABLE language (
+  language CHAR(2) NOT NULL,
+  PRIMARY KEY (language)
+);
+CREATE TABLE ref (
+  event VARCHAR(15) NOT NULL,
+  language CHAR(2) NOT NULL,
+  email_body TEXT NULL,
+  PRIMARY KEY (event, language),
+  INDEX language (language),
+CONSTRAINT ref_ibfk_1 FOREIGN KEY (language) REFERENCES Language (language),
+CONSTRAINT ref_ibfk_2 FOREIGN KEY (event) REFERENCES Event (event)
+);
+',
+
+  ref2 => '
+CREATE TABLE event (
+  event VARCHAR(15) NOT NULL,
+  PRIMARY KEY (event)
+);
+CREATE TABLE language (
+  language CHAR(2) NOT NULL,
+  PRIMARY KEY (language)
+);
+CREATE TABLE ref (
+  event VARCHAR(15) NOT NULL,
+  email_body TEXT NULL,
+  PRIMARY KEY (event),
+CONSTRAINT ref_ibfk_1 FOREIGN KEY (event) REFERENCES Event (event)
+);
+',
 );
 
 my %tests = (
@@ -426,6 +463,27 @@ ALTER TABLE baz DROP INDEX firstname; # was INDEX (firstname,surname)
 ALTER TABLE baz ADD UNIQUE firstname (firstname,surname);
 ',
   ],
+
+  'drop foreign column' =>
+  [
+    {},
+    @tables{qw/ref1 ref2/},
+    '## mysqldiff <VERSION>
+##
+## Run on <DATE>
+##
+## --- file: tmp.db1
+## +++ file: tmp.db2
+
+ALTER TABLE ref DROP FOREIGN KEY ref_ibfk_2; # was CONSTRAINT ref_ibfk_2 (event) REFERENCES Event (event)
+ALTER TABLE ref DROP FOREIGN KEY ref_ibfk_1; # was CONSTRAINT ref_ibfk_1 (language) REFERENCES Language (language)
+ALTER TABLE ref DROP INDEX language; # was INDEX (language)
+ALTER TABLE ref DROP PRIMARY KEY; # was (event,language)
+ALTER TABLE ref ADD PRIMARY KEY (event);
+ALTER TABLE ref DROP COLUMN language; # was char(2) NOT NULL
+ALTER TABLE ref ADD CONSTRAINT ref_ibfk_1 FOREIGN KEY (event) REFERENCES Event (event);
+',
+  ],
 );
 
 my $BAIL = check_setup();
@@ -439,15 +497,15 @@ use Data::Dumper;
 my @tests = (keys %tests); #keys %tests
 
 {
-    my %debug = ( debug_file => 'debug.log', debug => 9 );
+    my %debug = ( debug_file => 'debug.log', debug => 255 );
     unlink $debug{debug_file};
 
     for my $test (@tests) {
-      note( "Testing $test\n" );
+      diag( "Testing $test\n" );
 
       my ($opts, $db1_defs, $db2_defs, $expected) = @{$tests{$test}};
 
-      note("test=".Dumper($tests{$test}));
+      diag("test=".Dumper($tests{$test}));
 
       my $diff = MySQL::Diff->new(%$opts, %debug);
       isa_ok($diff,'MySQL::Diff');
@@ -457,8 +515,8 @@ my @tests = (keys %tests); #keys %tests
 
       my $d1 = $diff->register_db($db1, 1);
       my $d2 = $diff->register_db($db2, 2);
-      note("d1=" . Dumper($d1));
-      note("d2=" . Dumper($d2));
+      diag("d1=" . Dumper($d1));
+      diag("d2=" . Dumper($d2));
 
       isa_ok($d1, 'MySQL::Diff::Database');
       isa_ok($d2, 'MySQL::Diff::Database');
@@ -481,8 +539,8 @@ my @tests = (keys %tests); #keys %tests
         $expected =~ s/$ENGINE_RE/ENGINE=$engine/g;
       }
 
-      note("diffs = "    . Dumper($diffs));
-      note("expected = " . Dumper($expected));
+      diag("diffs = "    . Dumper($diffs));
+      diag("expected = " . Dumper($expected));
 
       is_deeply($diffs, $expected, ".. expected differences for $test");
 
@@ -497,7 +555,7 @@ my @tests = (keys %tests); #keys %tests
 sub get_db {
     my ($defs, $num) = @_;
 
-    note("defs=$defs");
+    diag("defs=$defs");
 
     my $file = "tmp.db$num";
     open(TMP, ">$file") or die "open: $!";

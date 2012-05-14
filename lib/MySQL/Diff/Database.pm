@@ -26,7 +26,7 @@ Parses a database definition into component parts.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.45';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -35,8 +35,9 @@ use Carp qw(:DEFAULT);
 use File::Slurp;
 use IO::File;
 
-use MySQL::Diff::Utils qw(debug);
+use MySQL::Diff::Utils qw(debug get_save_quotes);
 use MySQL::Diff::Table;
+use MySQL::Diff::View;
 
 # ------------------------------------------------------------------------------
 
@@ -61,21 +62,25 @@ sub new {
     my $self = {};
     bless $self, ref $class || $class;
 
-    debug(3,"\nconstructing new MySQL::Diff::Database");
+    debug(1,"\nconstructing new MySQL::Diff::Database");
 
     my $string = _auth_args_string(%{$p{auth}});
-    debug(3,"auth args: $string");
+    debug(1,"auth args: $string");
     $self->{_source}{auth} = $string;
     $self->{_source}{dbh} = $p{dbh} if($p{dbh});
 
+	my $tl = $p{table_list} // "";
     if ($p{file}) {
-        $self->_canonicalise_file($p{file});
+        debug(1, "Started to canonicalise file ".$p{file});
+        $self->_canonicalise_file($p{file},$tl);
     } elsif ($p{db}) {
-        $self->_read_db($p{db});
+        debug(1, "Started to read db ".$p{db});
+        $self->_read_db($p{db},$tl);
     } else {
         confess "MySQL::Diff::Database::new called without db or file params";
     }
 
+    debug(1, "Started to parse defs");
     $self->_parse_defs();
     return $self;
 }
@@ -143,6 +148,16 @@ sub tables {
     return @{$self->{_tables}};
 }
 
+=item * views()
+
+Returns a list of views for the current database
+
+=cut
+sub views {
+    my $self = shift;
+    return @{$self->{_views}};
+}
+
 =item * table_by_name( $name )
 
 Returns the table definition (see L<MySQL::Diff::Table>) for the given table.
@@ -152,6 +167,17 @@ Returns the table definition (see L<MySQL::Diff::Table>) for the given table.
 sub table_by_name {
     my ($self,$name) = @_;
     return $self->{_by_name}{$name};
+}
+
+=item * view_by_name( $name )
+
+Returns the view definitions (see L<MySQL::Diff:View>) for the given view
+
+=cut
+
+sub view_by_name {
+    my ($self,$name) = @_;
+    return $self->{v_by_name}{$name};
 }
 
 =back
@@ -171,6 +197,7 @@ Note that is used as a function call, not a method call.
 =cut
 
 sub available_dbs {
+    debug(1, "Started to get available databases list");
     my %auth = @_;
     my $args = _auth_args_string(%auth);
   
@@ -195,7 +222,7 @@ sub available_dbs {
 # Private Methods
 
 sub _canonicalise_file {
-    my ($self, $file) = @_;
+    my ($self, $file, $table_list) = @_;
 
     $self->{_source}{file} = $file;
     debug(2,"fetching table defs from file $file");
@@ -212,37 +239,42 @@ sub _canonicalise_file {
   
     my $args = $self->{_source}{auth};
     my $fh = IO::File->new("| mysql $args") or die "Couldn't execute 'mysql$args': $!\n";
-    print $fh "\nCREATE DATABASE \`$temp_db\`;\nUSE \`$temp_db\`;\n";
-    print $fh $defs;
-    $fh->close;
+    my $sql = "\nCREATE DATABASE \`$temp_db\`;\nUSE \`$temp_db\`;\nSET foreign_key_checks = 0;\n$defs";
+    print $fh $sql;
+    my $result = $fh->close;
 
     # ... and then retrieve defs from mysqldump.  Hence we've used
     # MySQL to massage the defs file into canonical form.
-    $self->_get_defs($temp_db);
+    $self->_get_defs($temp_db, $table_list);
 
     debug(3,"dropping temporary database $temp_db");
     $fh = IO::File->new("| mysql $args") or die "Couldn't execute 'mysql$args': $!\n";
     print $fh "DROP DATABASE \`$temp_db\`;\n";
     $fh->close;
+
+	die "Couldn't execute mysql command:[$args] '$sql'\n" unless ($result);
 }
 
 sub _read_db {
-    my ($self, $db) = @_;
+    my ($self, $db, $table_list) = @_;
     $self->{_source}{db} = $db;
-    debug(3, "fetching table defs from db $db");
-    $self->_get_defs($db);
+    debug(1, "fetching ". (($table_list) ? $table_list : "all") . " table defs from db $db");
+    $self->_get_defs($db, $table_list);
 }
 
 sub _get_defs {
-    my ($self, $db) = @_;
+    my ($self, $db, $table_list) = @_;
+
+	$table_list =~ s/,/ /g;
 
     my $args = $self->{_source}{auth};
-    my $fh = IO::File->new("mysqldump -d $args $db 2>&1 |")
+    my $start_time = time();
+    my $fh = IO::File->new("mysqldump -d -q --single-transaction $args $db $table_list 2>&1 |")
         or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
-    debug(3, "running mysqldump -d $args $db");
+    debug(2, "running mysqldump -d $args $db");
     my $defs = $self->{_defs} = [ <$fh> ];
     $fh->close;
-
+    debug(1, "dump time: ".(time() - $start_time));
     if (grep /mysqldump: Got error: .*: Unknown database/, @$defs) {
         die <<EOF;
 Failed to create temporary database $db
@@ -259,17 +291,41 @@ sub _parse_defs {
     return if $self->{_tables};
 
     debug(2, "parsing table defs");
-    my $defs = join '', grep ! /^\s*(\#|--|SET|\/\*)/, @{$self->{_defs}};
-    $defs =~ s/`//sg;
-    my @tables = split /(?=^\s*(?:create|alter|drop)\s+table\s+)/im, $defs;
+    my $defs = join '', @{$self->{_defs}};
+    my $c = get_save_quotes();
+    if (!$c) {
+        $defs =~ s/`//sg;
+    }
+    #warn "DEF1:\n", $defs;
+    $defs =~ s/(\#|--).*?\n//g; # delete singleline comments
+    $defs =~ s/.*?SET\s+.*?;\s*//ig; #delete SETs
+    $defs =~ s/\/\*[^\/\*]*?\!\d+\s+([^\/\*]*?)\*\/\s*/\n$1/gs; # get content from executable comments
+    $defs =~ s/\/\*[^\/\*]*?\*\/\s*//gs; #delete all multiline comments
+    $defs =~ s/DELIMITER\s+.*?\s//ig;
+    #warn "DEF2:\n", $defs;
+    my @tables = split /(?=^\s*(?:create|alter|drop)\s+(?:table|.*?view)\s+)/ims, $defs;
     $self->{_tables} = [];
+    $self->{_views} = [];
     for my $table (@tables) {
-        debug(4, "  table def [$table]");
+        debug(1, "  table def [$table]");
+		next unless $table;
         if($table =~ /create\s+table/i) {
             my $obj = MySQL::Diff::Table->new(source => $self->{_source}, def => $table);
-            push @{$self->{_tables}}, $obj;
             $self->{_by_name}{$obj->name()} = $obj;
-        }
+        } 
+        elsif ($table =~ /create\s+.*?\s+view/is) {
+            my $obj = MySQL::Diff::View->new(source => $self->{_source}, def => $table);
+            $self->{v_by_name}{$obj->name()} = $obj;
+            if ($self->{_by_name}{$obj->name()}) {
+                delete($self->{_by_name}{$obj->name()});
+            }
+        } 
+    }
+    for my $t (keys %{$self->{_by_name}}) {
+        push @{$self->{_tables}}, $self->{_by_name}{$t};
+    }
+    for my $v (keys %{$self->{v_by_name}}) {
+        push @{$self->{_views}}, $self->{v_by_name}{$v};
     }
 }
 
