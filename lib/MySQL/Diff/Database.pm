@@ -316,7 +316,9 @@ sub _get_defs {
 
     my $args = $self->{_source}{auth};
     my $start_time = time();
-    my $errors_fname = get_logdir() . '/' . generate_random_string() . '_dump_errors_'.$db.'_'.time().'.log';
+    my $dump_errors_folder = get_logdir() . '/' . 'dump_errors_' . $db;
+    mkdir $dump_errors_folder;
+    my $errors_fname =  $dump_errors_folder . '/dump_errors_' . time(). '_' . generate_random_string() . '.log';
     if (!$self->{db_name}) {
         $self->{temp_db_name} = $db;
     }

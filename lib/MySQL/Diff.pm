@@ -316,7 +316,7 @@ sub diff {
         }
     }
 
-    debug(4,join '', @changes);
+    debug(4, Dumper(@changes));
 
     my $out = '';
     if (@changes) {
@@ -950,7 +950,7 @@ sub _check_for_auto_col {
         debug(3, "field '$field' not exists in table in second database") if $not_is_field;
         next if $not_is_field;
         my $not_AI = ($table->field($field) !~ /auto_increment/i);
-        debug(3, "field '$field' not AUTO_INCREMENT in table in second database") if $not_AI;
+        debug(3, "field '$field' is not AUTO_INCREMENT in table in second database") if $not_AI;
         next if $not_AI;
         #next if($table->isa_index($field));
         my $pk = ($primary && $table->isa_primary($field));

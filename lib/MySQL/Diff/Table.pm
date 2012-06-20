@@ -197,7 +197,14 @@ sub _parse {
     my $line_copy = '';
     my $prev_line = '';
     my $fk_line = 0;
+    my $end_part_found = 0;
+    my $field_found = 0;
+    my $field;
+    my $fdef;
+
     while (@lines) {
+        $field_found = 0;
+        $end_part_found = 0;
         # save full copy of line as previous line
         $prev_line = $line_copy unless $fk_line;
         $_ = shift @lines;
@@ -287,8 +294,23 @@ sub _parse {
             next;
         }
 
-        if (/^(\S+)\s*(.*)/) {
-            my ($field, $fdef) = ($1, $2);
+        # if we save quoutes, tgry to search field in `field` definition 
+        if ($c) {
+            if (/^(`.+`)\s*(.*)/) {
+                ($field, $fdef) = ($1, $2);
+                $field_found = 1;
+            }
+        }
+
+        # if we haven't found it yet, try to parse string "as is"
+        if (!$field_found) {
+            if (/^(\S+)\s*(.*)/) {
+                ($field, $fdef) = ($1, $2);
+                $field_found = 1;
+            }
+        }
+
+        if ($field_found) {
             if (!$end_found) {
                 $self->{fields}{$field} = $fdef;
                 debug(4,"got field def '$field': $fdef");   

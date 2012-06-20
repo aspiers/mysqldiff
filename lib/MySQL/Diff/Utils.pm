@@ -139,9 +139,10 @@ Get choice about save saving quotes
         if ($log_dir && $filename && $content) {
             my @chars=('a'..'z','A'..'Z','0'..'9','_');
             if (!$random_string) {
-                $random_string = generate_random_string();
+                $random_string = $log_dir. '/dump_' . time() . '_' . generate_random_string();
+                mkdir $random_string
             }
-            $filename = $log_dir . '/' . $random_string . '_' . $filename ;
+            $filename = $random_string . '/' . $filename ;
             if ($append) {
                 open(LOG_FILE, '>>'.$filename);
             } else {
