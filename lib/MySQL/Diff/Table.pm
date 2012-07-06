@@ -145,7 +145,14 @@ Returns 1 if given field is used as fulltext index field, otherwise returns 0.
 
 sub def             { my $self = shift; return $self->{def};            }
 sub name            { my $self = shift; return $self->{name};           }
-sub field           { my $self = shift; return $self->{fields}{$_[0]};  }
+sub field           { 
+    my ($self, $fname) = @_; 
+    # if we have length definition in index definition, get only field name
+    if ($fname =~ /(.*?)\(\d+\)/) {
+        $fname = $1;
+    }
+    return $self->{fields}{$fname};  
+}
 sub fields          { my $self = shift; return $self->{fields};         }
 sub fields_links    { my $self = shift; return $self->{fields_links}{$_[0]}; }
 sub fields_order    { my $self = shift; return $self->{fields_order};   }
