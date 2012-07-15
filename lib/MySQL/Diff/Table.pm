@@ -301,7 +301,7 @@ sub _parse {
             next;
         }
 
-        # if we save quoutes, tgry to search field in `field` definition 
+        # if we save quoutes, try to search field in `field` definition 
         if ($c) {
             if (/^(`.+`)\s*(.*)/) {
                 ($field, $fdef) = ($1, $2);

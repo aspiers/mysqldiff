@@ -315,7 +315,7 @@ sub diff {
                 push @changes, [$temp_view, {'k' => 6}] 
                     unless $self->{opts}{'only-both'};    
                 $change = $self->add_header($view2, "add_view") unless !$self->{opts}{'list-tables'};
-                $change .= "DROP TABLE $name IF EXISTS;\n" . $view2->def() . "\n";
+                $change .= "DROP TABLE IF EXISTS $name;\n" . $view2->def() . "\n";
                 push @changes, [$change, {'k' => 5}]
                     unless $self->{opts}{'only-both'};
             }

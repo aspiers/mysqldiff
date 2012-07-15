@@ -365,6 +365,7 @@ sub _parse_defs {
     }
     
     my $db_log = '';
+    my $dbh;
     if ($self->{db_name}) {
         $db_log = $self->{db_name};
     } else {
@@ -381,7 +382,7 @@ sub _parse_defs {
         my $dsn = "DBI:mysql:$self->{db_name}:$self->{auth_data}{host}";
         my $db_user_name = $self->{auth_data}{user};
         my $db_password = $self->{auth_data}{password};
-        my $dbh = DBI->connect($dsn, $db_user_name, $db_password);
+        $dbh = DBI->connect($dsn, $db_user_name, $db_password);
         $dbh->do(qq{SET NAMES 'utf8';});
         # TODO: refactoring
         # get triggers
@@ -425,7 +426,6 @@ sub _parse_defs {
                 }
             }
         }
-        $dbh->disconnect();
     }
 
     write_log('defs_after_'.$db_log.'.sql', $defs);
@@ -450,7 +450,7 @@ sub _parse_defs {
             my $obj = MySQL::Diff::View->new(source => $self->{_source}, def => $table);
             $self->{v_by_name}{$obj->name()} = $obj;
             if ($self->{_by_name}{$obj->name()}) {
-                $self->{_temp_view_tables}{$obj->name()} = $self->{_by_name}{$obj->name()}->def();
+                $self->{_temp_view_tables}{$obj->name()} = 1;
                 delete($self->{_by_name}{$obj->name()});
             }
             $self->{views_order}{$obj->name()} = $counters->{views};
@@ -463,6 +463,23 @@ sub _parse_defs {
             $counters->{routines} += 1;
             push @{$self->{_routines}}, $obj;
         }
+    }
+    if ($self->{db_name}) {
+            my $sth;
+            my $fields_s = '';
+            for my $temp_table (keys %{$self->{_temp_view_tables}}) {
+                $sth = $dbh->prepare(qq{SHOW FIELDS FROM $temp_table});
+                $sth->execute();
+                my @f_list = ();
+                while (my @row = $sth->fetchrow_array()) {
+                        # push concatenated string consists of field name and type
+                        push(@f_list, $row[0].' '.$row[1]);
+                }
+                $sth->finish();
+                $fields_s = join ', ', @f_list;
+                $self->{_temp_view_tables}{$temp_table} = "CREATE TABLE $temp_table ($fields_s);"; 
+            }
+            $dbh->disconnect();
     }
     for my $t (keys %{$self->{_by_name}}) {
         push @{$self->{_tables}}, $self->{_by_name}{$t};
