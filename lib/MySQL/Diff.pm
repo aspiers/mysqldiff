@@ -308,8 +308,14 @@ sub diff {
             debug(1, "looking at view '$name' in second database");
             if (!$self->db1->view_by_name($name)) {
                 my $change = '';
+                my $temp_view = '';
+                debug(2, "looking for temporary table for view '$name'");
+                $temp_view = $self->add_header($view2, "add_table") unless !$self->{opts}{'list-tables'};
+                $temp_view .= $self->db2->view_temp($name) . "\n";
+                push @changes, [$temp_view, {'k' => 6}] 
+                    unless $self->{opts}{'only-both'};    
                 $change = $self->add_header($view2, "add_view") unless !$self->{opts}{'list-tables'};
-                $change .= $view2->def() . "\n";
+                $change .= "DROP TABLE $name IF EXISTS;\n" . $view2->def() . "\n";
                 push @changes, [$change, {'k' => 5}]
                     unless $self->{opts}{'only-both'};
             }

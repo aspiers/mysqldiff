@@ -194,6 +194,17 @@ sub table_by_name {
     return $self->{_by_name}{$name};
 }
 
+=item * view_temp( $name )
+
+Returns the temporary table definition (see L<MySQL::Diff::Table>) for the given view.
+
+=cut
+
+sub view_temp {
+    my ($self,$name) = @_;
+    return $self->{_temp_view_tables}{$name};
+}
+
 =item * view_by_name( $name )
 
 Returns the view definitions (see L<MySQL::Diff:View>) for the given view
@@ -439,6 +450,7 @@ sub _parse_defs {
             my $obj = MySQL::Diff::View->new(source => $self->{_source}, def => $table);
             $self->{v_by_name}{$obj->name()} = $obj;
             if ($self->{_by_name}{$obj->name()}) {
+                $self->{_temp_view_tables}{$obj->name()} = $self->{_by_name}{$obj->name()}->def();
                 delete($self->{_by_name}{$obj->name()});
             }
             $self->{views_order}{$obj->name()} = $counters->{views};
