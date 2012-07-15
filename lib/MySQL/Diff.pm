@@ -310,7 +310,7 @@ sub diff {
                 my $change = '';
                 my $temp_view = '';
                 debug(2, "looking for temporary table for view '$name'");
-                $temp_view = $self->add_header($view2, "add_table") unless !$self->{opts}{'list-tables'};
+                $temp_view = $self->add_header($name.'_temptable', "add_table", 0, 1) unless !$self->{opts}{'list-tables'};
                 $temp_view .= $self->db2->view_temp($name) . "\n";
                 push @changes, [$temp_view, {'k' => 6}] 
                     unless $self->{opts}{'only-both'};    
@@ -368,6 +368,17 @@ sub _add_ref_tables {
                         $change = $self->add_header($table, "ref_table", 1) . "\n";
                     }
                     push @changes, [$change, {'k' => 6}];
+                    if (!$self->{opts}{'refs'}) {
+                            if (!$self->{opts}{'only-both'}) {
+                                    my $fks = $table->foreign_key();
+                                    for my $fk (keys %$fks) {
+                                        debug(3, "FK $fk for created table $name added");
+                                        $change = $self->add_header($table, 'add_fk') unless !$self->{opts}{'list-tables'};
+                                        $change .= "ALTER TABLE $name ADD CONSTRAINT $fk FOREIGN KEY $fks->{$fk};\n";
+                                        push @changes, [$change, {'k' => 1}];
+                                    }
+                            }
+                    }
                 }
             }
         }
@@ -1118,8 +1129,14 @@ sub _debug_level {
 }
 
 sub add_header {
-    my ($self, $table, $type, $add_referenced) = @_;
-    my $name = $table->name();
+    my ($self, $table, $type, $add_referenced, $asis) = @_;
+    my $name;
+    if ($asis) {
+        $name = $table;
+    }
+    else {
+        $name = $table->name();
+    }
     my $comment = "-- {\n-- \t\"name\" : \"$name\",\n";
     $comment .= "-- \t\"action_type\" : \"$type\"";
     if ($add_referenced) {
