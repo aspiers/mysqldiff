@@ -271,7 +271,7 @@ sub diff {
                 my $additional_tables = '';
                 my $additional_fk_tables = $table2->fk_tables();
                 if ($additional_fk_tables) {
-                    push @changes, $self->_add_ref_tables($additional_fk_tables);
+                    push @changes, $self->_add_ref_tables($additional_fk_tables, $name);
                 }
                 my $change = '';
                 $change = $self->add_header($table2, "add_table", 1) unless !$self->{opts}{'list-tables'};
@@ -282,6 +282,7 @@ sub diff {
                     my $fks = $table2->foreign_key();
                     for my $fk (keys %$fks) {
                         debug(3, "FK $fk for created table $name added");
+                        $change = '';
                         $change = $self->add_header($table2, 'add_fk') unless !$self->{opts}{'list-tables'};
                         $change .= "ALTER TABLE $name ADD CONSTRAINT $fk FOREIGN KEY $fks->{$fk};\n";
                         push @changes, [$change, {'k' => 1}];
@@ -341,7 +342,7 @@ sub diff {
 # Private Methods
 
 sub _add_ref_tables {
-    my ($self, $tables) = @_;
+    my ($self, $tables, $refed) = @_;
     my @changes = ();
     if ($tables) {
         for my $name (keys %$tables) {
@@ -373,6 +374,7 @@ sub _add_ref_tables {
                                     my $fks = $table->foreign_key();
                                     for my $fk (keys %$fks) {
                                         debug(3, "FK $fk for created table $name added");
+                                        $change = '';
                                         $change = $self->add_header($table, 'add_fk') unless !$self->{opts}{'list-tables'};
                                         $change .= "ALTER TABLE $name ADD CONSTRAINT $fk FOREIGN KEY $fks->{$fk};\n";
                                         push @changes, [$change, {'k' => 1}];
