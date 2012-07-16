@@ -313,7 +313,7 @@ sub diff {
                 debug(2, "looking for temporary table for view '$name'");
                 $temp_view = $self->add_header($name.'_temptable', "add_table", 0, 1) unless !$self->{opts}{'list-tables'};
                 $temp_view .= $self->db2->view_temp($name) . "\n";
-                push @changes, [$temp_view, {'k' => 6}] 
+                push @changes, [$temp_view, {'k' => 9}] 
                     unless $self->{opts}{'only-both'};    
                 $change = $self->add_header($view2, "add_view") unless !$self->{opts}{'list-tables'};
                 $change .= "DROP TABLE IF EXISTS $name;\n" . $view2->def() . "\n";
