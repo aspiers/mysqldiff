@@ -32,13 +32,14 @@ Parses a table definition into component parts.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.46';
 
 # ------------------------------------------------------------------------------
 # Libraries
 
 use Carp qw(:DEFAULT);
-use MySQL::Diff::Utils qw(debug);
+use Data::Dumper;
+use MySQL::Diff::Utils qw(debug get_save_quotes write_log);
 
 # ------------------------------------------------------------------------------
 
@@ -63,7 +64,7 @@ sub new {
 
     $self->{$_} = $hash{$_} for(keys %hash);
 
-    debug(3,"\nconstructing new MySQL::Diff::Table");
+    debug(6,"\nconstructing new MySQL::Diff::Table");
     croak "MySQL::Diff::Table::new called without def params" unless $self->{def};
     $self->_parse;
     return $self;
@@ -97,9 +98,21 @@ Returns an array reference to a list of fields.
 
 Returns a hash reference to fields used as primary key fields.
 
+=item * primary_parts
+
+Returns a hash reference to parts of composite primary key
+
 =item * indices
 
 Returns a hash reference to fields used as index fields.
+
+=item * indices_opts
+
+Returns a hash reference to options of index fields
+
+=item * indices_parts
+
+Returns a hash reference to parts of composite index fields
 
 =item * options
 
@@ -132,43 +145,83 @@ Returns 1 if given field is used as fulltext index field, otherwise returns 0.
 
 sub def             { my $self = shift; return $self->{def};            }
 sub name            { my $self = shift; return $self->{name};           }
-sub field           { my $self = shift; return $self->{fields}{$_[0]};  }
+sub field           { 
+    my ($self, $fname) = @_; 
+    # if we have length definition in index definition, get only field name
+    if ($fname =~ /(.*?)\(\d+\)/) {
+        $fname = $1;
+    }
+    return $self->{fields}{$fname};  
+}
 sub fields          { my $self = shift; return $self->{fields};         }
+sub fields_links    { my $self = shift; return $self->{fields_links}{$_[0]}; }
+sub fields_order    { my $self = shift; return $self->{fields_order};   }
 sub primary_key     { my $self = shift; return $self->{primary_key};    }
+sub primary_parts   { my $self = shift; return $self->{primary};        }
 sub indices         { my $self = shift; return $self->{indices};        }
+sub indices_opts    { my $self = shift; return $self->{indices_opts};   }
+sub indices_parts   { my $self = shift; return $self->{indices_parts}{$_[0]};  }
 sub options         { my $self = shift; return $self->{options};        }
+sub foreign_key     { my $self = shift; return $self->{foreign_key};    }
+sub fk_tables       { my $self = shift; return $self->{fk_tables};      }
+sub get_fk_by_col   { my $self = shift; return $self->{fk_by_column}{$_[0]}; }
 
-sub isa_field       { my $self = shift; return $_[0] && $self->{fields}{$_[0]}   ? 1 : 0; }
-sub isa_primary     { my $self = shift; return $_[0] && $self->{primary}{$_[0]}  ? 1 : 0; }
-sub isa_index       { my $self = shift; return $_[0] && $self->{indices}{$_[0]}  ? 1 : 0; }
-sub is_unique       { my $self = shift; return $_[0] && $self->{unique}{$_[0]}   ? 1 : 0; }
-sub is_fulltext     { my $self = shift; return $_[0] && $self->{fulltext}{$_[0]} ? 1 : 0; }
+sub isa_field       { my $self = shift; return $_[0] && $self->{fields}{$_[0]}   ? 1 : 0;       }
+sub isa_primary     { my $self = shift; return $_[0] && $self->{primary}{$_[0]}  ? 1 : 0;       }
+sub isa_fk          { my $self = shift; return $_[0] && $self->{foreign_key}{$_[0]}  ? 1 : 0;   }
+sub isa_index       { my $self = shift; return $_[0] && $self->{indices}{$_[0]}  ? 1 : 0;       }
+sub is_unique       { my $self = shift; return $_[0] && $self->{unique}{$_[0]}   ? 1 : 0;       }
+sub is_fulltext     { my $self = shift; return $_[0] && $self->{fulltext}{$_[0]} ? 1 : 0;       }
 
 # ------------------------------------------------------------------------------
 # Private Methods
 
 sub _parse {
     my $self = shift;
-
-    $self->{def} =~ s/`([^`]+)`/$1/gs;  # later versions quote names
+    debug(5,"parsing table def '$self->{def}'");
+    my $c = get_save_quotes();
+    if (!$c) {
+        $self->{def} =~ s/`([^`]+)`/$1/gs; # later versions quote names
+    }
     $self->{def} =~ s/\n+/\n/;
     $self->{lines} = [ grep ! /^\s*$/, split /(?=^)/m, $self->{def} ];
     my @lines = @{$self->{lines}};
-    debug(4,"parsing table def '$self->{def}'");
-
     my $name;
     if ($lines[0] =~ /^\s*create\s+table\s+(\S+)\s+\(\s*$/i) {
         $self->{name} = $1;
-        debug(3,"got table name '$self->{name}'");
+        debug(4,"got table name '$self->{name}'");
         shift @lines;
     } else {
-        croak "couldn't figure out table name";
+        write_log('tables_log', $lines[0], 1);
+        croak "couldn't figure out table name ".$lines[0];
     }
+    my $end_found = 0;
+    my $table_end = '';
+    my $prev_field = '';
+    $self->{fields_links} = {};
+    my $fields_order;
+    my $start_order = 0;
+    my $line_copy = '';
+    my $prev_line = '';
+    my $fk_line = 0;
+    my $end_part_found = 0;
+    my $field_found = 0;
+    my $field;
+    my $fdef;
 
     while (@lines) {
+        $field_found = 0;
+        $end_part_found = 0;
+        # save full copy of line as previous line
+        $prev_line = $line_copy unless $fk_line;
         $_ = shift @lines;
-        s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
-        debug(4,"line: [$_]");
+        $line_copy = $_;
+        if (!$end_found) {
+            s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas 
+        } else {
+            s/^\s*(.*?)\s*$/$1/; # trim whitespaces 
+        }
+        debug(5,"line: [$_]");
         if (/^PRIMARY\s+KEY\s+(.+)$/) {
             my $primary = $1;
             croak "two primary keys in table '$self->{name}': '$primary', '$self->{primary_key}'\n"
@@ -177,16 +230,38 @@ sub _parse {
             $self->{primary_key} = $primary;
             $primary =~ s/\((.*?)\)/$1/;
             $self->{primary}{$_} = 1    for(split(/,/, $primary));
-
+            
+            next;
+        }
+        
+        if (/^(?:CONSTRAINT\s+(.*)?)?\s+FOREIGN\s+KEY\s+(.*)\s+REFERENCES\s+(.*?)\s+(.*)$/) {
+            my ($key, $column_name, $tbl_name, $opts) = ($1, $2, $3, $4);
+            croak "foreign key '$key' duplicated in table '$name'\n"
+                if $self->{foreign_key}{$key};
+            debug(4,"got foreign key $key with column name: $column_name, table name: $tbl_name, options: $opts");
+            my $val = $column_name.' REFERENCES '.$tbl_name.' '.$opts;
+            $self->{foreign_key}{$key} = $val;
+            $column_name =~ s/\((.*?)\)/$1/;
+            $self->{fk_by_column}{$_}{$key} = $val for(split(/,/, $column_name));
+            $self->{fk_tables}{$tbl_name} = 1;
+            $fk_line = 1;
+            my $q_line_copy = quotemeta($line_copy);
+            $self->{def} =~ s/$q_line_copy//gs;
             next;
         }
 
-        if (/^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)(?:\s+USING\s+(?:BTREE|HASH|RTREE))?\s*\((.*)\)$/) {
-            my ($type, $key, $val) = ($1, $2, $3);
+        # Also can be /^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)(?:\s+USING\s+(?:BTREE|HASH|RTREE))?\s*\((.*)\)$/
+        # and /^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)\s+\((.*)\)(\s+USING\s+(?:BTREE|HASH|RTREE))?(.*)$/
+        if (/^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)\s+\((.*)\)(.*)$/) {
+            my ($type, $key, $val, $opts) = ($1, $2, $3, $4);
             croak "index '$key' duplicated in table '$name'\n"
                 if $self->{indices}{$key};
             $self->{indices}{$key} = $val;
+            if ($opts) {
+                $self->{indices_opts}{$key} = $opts;
+            }
             $self->{unique}{$key} = 1   if($type =~ /unique/i);
+            $self->{indices_parts}{$key}{$_} = 1 for(split(/,/, $val));
             debug(4, "got ", defined $self->{unique}{$key} ? 'unique ' : '', "index key '$key': ($val)");
             next;
         }
@@ -201,32 +276,84 @@ sub _parse {
             next;
         }
 
-        if (/^\)\s*(.*?);$/) { # end of table definition
-            $self->{options} = $1;
-            debug(4,"got table options '$self->{options}'");
-            last;
-        }
-
-        if (/^(\S+)\s*(.*)/) {
-            my ($field, $fdef) = ($1, $2);
-            croak "definition for field '$field' duplicated in table '$name'\n"
-                if $self->{fields}{$field};
-            $self->{fields}{$field} = $fdef;
-            debug(4,"got field def '$field': $fdef");
+        if (/^\)\s*(.*?)$/) { # end of table definition
+            $end_found = 1;
+            my $opt = $1;
+            # strip AUTO_INCREMENT and other trash options from table definition and from options variable content
+            my $opt_stripped = $opt;
+            my @strip_trash = ('AUTO_INCREMENT', 'AVG_ROW_LENGTH', 'CHECKSUM', 'ROW_FORMAT', 'DELAY_KEY_WRITE');
+            if ($opt =~ /MyISAM/i) {
+                @strip_trash = ('AUTO_INCREMENT');
+            }
+            foreach my $strip_opt (@strip_trash) {
+                $opt_stripped =~ s/ $strip_opt=(\w+)//gs;
+            }
+            $opt = quotemeta($opt);
+            $self->{def} =~ s/$opt/$opt_stripped/gs;
+            # quote previous line
+            my $q_prev_line = quotemeta($prev_line);
+            # strip orphan commas from previous line
+            $prev_line =~ s/^(.*?),?$/$1/;
+            $self->{def} =~ s/$q_prev_line/$prev_line/gs;
+            $opt = $opt_stripped;
+            $table_end .= $opt;
+            debug(4,"got table options '$opt'");
             next;
         }
 
+        # if we save quoutes, try to search field in `field` definition 
+        if ($c) {
+            if (/^(`.+`)\s*(.*)/) {
+                ($field, $fdef) = ($1, $2);
+                $field_found = 1;
+            }
+        }
+
+        # if we haven't found it yet, try to parse string "as is"
+        if (!$field_found) {
+            if (/^(\S+)\s*(.*)/) {
+                ($field, $fdef) = ($1, $2);
+                $field_found = 1;
+            }
+        }
+
+        if ($field_found) {
+            if (!$end_found) {
+                $self->{fields}{$field} = $fdef;
+                debug(4,"got field def '$field': $fdef");   
+                if ($prev_field) {
+                    $self->{fields_links}{$field}{'prev_field'} = $prev_field;
+                    $self->{fields_links}{$prev_field}{'next_field'} = $field;
+                }
+                $prev_field = $field;
+                # save properly fields order, because hash not store it
+                $self->{fields_order}{$field} = ++$start_order;
+            } else {
+                $table_end .= " $field $fdef";
+            }
+            next;
+        }
+
+        write_log('tables_log', $_, 1);
         croak "unparsable line in definition for table '$self->{name}':\n$_";
     }
 
-    warn "table '$self->{name}' didn't have terminator\n"
-        unless defined $self->{options};
+    debug(6, "Table's fields links: ".Dumper($self->{fields_links}));
+
+    if ($table_end =~ /^\s*(.*?);$/s) {
+        $self->{options} = $table_end;
+        $self->{options} =~ s/;//gs;
+    } else {
+        warn "table '$self->{name}' didn't have terminator: \n", $self->{def} 
+            unless defined $self->{options};
+    }
 
     @lines = grep ! m{^/\*!40\d{3} .*? \*/;}, @lines;
     @lines = grep ! m{^(SET |DROP TABLE)}, @lines;
 
     warn "table '$self->{name}' had trailing garbage:\n", join '', @lines
         if @lines;
+        
 }
 
 1;

@@ -28,7 +28,7 @@ use IO::File;
 # Export Components
 
 use base qw(Exporter);
-our @EXPORT_OK = qw(debug_file debug_level debug);
+our @EXPORT_OK = qw(debug_file debug_level debug set_save_quotes get_save_quotes save_logdir get_logdir write_log generate_random_string);
 
 # ------------------------------------------------------------------------------
 
@@ -57,6 +57,14 @@ flow messages and 4 providing data dumps, etc where appropriate.
 Writes to debug log file (if specified) and STDERR the given message, provided
 is equal to or lower than the current debug level.
 
+=item * set_save_quotes
+
+Save choice about save saving quotes
+
+=item * get_save_quotes
+
+Get choice about save saving quotes
+
 =back
 
 =cut
@@ -64,6 +72,9 @@ is equal to or lower than the current debug level.
 {
     my $debug_file;
     my $debug_level = 0;
+    my $choice = 0;
+    my $log_dir = '';
+    my $random_string = '';
 
     sub debug_file {
         my ($new_debug_file) = @_;
@@ -88,9 +99,60 @@ is equal to or lower than the current debug level.
                 return;
             }
         }
-        
-        print STDERR @_,"\n";
+        my $padding = '';
+        for (my $i = 0; $i < $level; $i++) {
+            $padding .= '    ';
+        }
+        print STDERR $padding,@_,"\n";
     }
+    
+    sub set_save_quotes {
+        $choice = @_;
+    }
+    
+    sub get_save_quotes {
+        return $choice;
+    }
+
+    sub save_logdir {
+        $log_dir = shift;
+    }
+
+    sub get_logdir {
+        return $log_dir;
+    }
+
+    sub generate_random_string {
+        my @chars=('a'..'z','A'..'Z','0'..'9');
+        my $random_string = '';
+        foreach (1..5) 
+        {
+            # rand @chars will generate a random 
+            # number between 0 and scalar @chars
+            $random_string.=$chars[rand @chars];
+        }
+        return $random_string;
+    }
+
+    sub write_log {
+        my ($filename, $content, $append) = @_;
+        if ($log_dir && $filename && $content) {
+            my @chars=('a'..'z','A'..'Z','0'..'9','_');
+            if (!$random_string) {
+                $random_string = $log_dir. '/dump_' . time() . '_' . generate_random_string();
+                mkdir $random_string
+            }
+            $filename = $random_string . '/' . $filename ;
+            if ($append) {
+                open(LOG_FILE, '>>'.$filename);
+            } else {
+                open(LOG_FILE, '>'.$filename);
+            }
+            print LOG_FILE $content;
+            close (LOG_FILE);
+        }
+    }
+    
 }
 
 1;

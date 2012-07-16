@@ -177,7 +177,6 @@ ALTER TABLE foo DROP COLUMN field;
 ## --- file: tmp.db1
 ## +++ file: tmp.db2
 
-ALTER TABLE foo ADD COLUMN field blob;
 CREATE TABLE bar (
   id int(11) NOT NULL auto_increment,
   ctime datetime default NULL,
@@ -187,6 +186,7 @@ CREATE TABLE bar (
   PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=latin1;
 
+ALTER TABLE foo ADD COLUMN field blob;
 ',
   ],
 

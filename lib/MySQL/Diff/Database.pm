@@ -26,7 +26,7 @@ Parses a database definition into component parts.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.46';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -34,9 +34,14 @@ our $VERSION = '0.43';
 use Carp qw(:DEFAULT);
 use File::Slurp;
 use IO::File;
+use DBI;
+use Data::Dumper;
+use Digest::MD5 qw(md5 md5_hex);
 
-use MySQL::Diff::Utils qw(debug);
+use MySQL::Diff::Utils qw(debug get_save_quotes write_log get_logdir generate_random_string);
 use MySQL::Diff::Table;
+use MySQL::Diff::View;
+use MySQL::Diff::Routine;
 
 # ------------------------------------------------------------------------------
 
@@ -61,21 +66,36 @@ sub new {
     my $self = {};
     bless $self, ref $class || $class;
 
-    debug(3,"\nconstructing new MySQL::Diff::Database");
+    debug(1,"\nconstructing new MySQL::Diff::Database");
 
     my $string = _auth_args_string(%{$p{auth}});
-    debug(3,"auth args: $string");
+    my $default_params;
+    $default_params->{host} = 'localhost';
+    $default_params->{port} = '3306';
+    for my $arg (qw/host port user password socket/) {
+        if ($p{auth}{$arg}) {
+            $self->{auth_data}{$arg} = $p{auth}{$arg};
+        } else {
+            if ($default_params->{$arg}) {
+                $self->{auth_data}{$arg} = $default_params->{$arg};
+            }
+        }
+    }
+    debug(1,"auth args: $string");
     $self->{_source}{auth} = $string;
     $self->{_source}{dbh} = $p{dbh} if($p{dbh});
 
     if ($p{file}) {
+        debug(1, "Started to canonicalise file ".$p{file});
         $self->_canonicalise_file($p{file});
     } elsif ($p{db}) {
+        debug(1, "Started to read db ".$p{db});
         $self->_read_db($p{db});
     } else {
         confess "MySQL::Diff::Database::new called without db or file params";
     }
 
+    debug(1, "Started to parse defs");
     $self->_parse_defs();
     return $self;
 }
@@ -143,6 +163,26 @@ sub tables {
     return @{$self->{_tables}};
 }
 
+=item * views()
+
+Returns a list of views for the current database
+
+=cut
+sub views {
+    my $self = shift;
+    return @{$self->{_views}};
+}
+
+=item * routines()
+
+Returns a list of routines for the current database
+
+=cut
+sub routines {
+    my $self = shift;
+    return @{$self->{_routines}};
+}
+
 =item * table_by_name( $name )
 
 Returns the table definition (see L<MySQL::Diff::Table>) for the given table.
@@ -152,6 +192,52 @@ Returns the table definition (see L<MySQL::Diff::Table>) for the given table.
 sub table_by_name {
     my ($self,$name) = @_;
     return $self->{_by_name}{$name};
+}
+
+=item * view_temp( $name )
+
+Returns the temporary table definition (see L<MySQL::Diff::Table>) for the given view.
+
+=cut
+
+sub view_temp {
+    my ($self,$name) = @_;
+    return $self->{_temp_view_tables}{$name};
+}
+
+=item * view_by_name( $name )
+
+Returns the view definitions (see L<MySQL::Diff:View>) for the given view
+
+=cut
+
+sub view_by_name {
+    my ($self,$name) = @_;
+    return $self->{v_by_name}{$name};
+}
+
+=item * routine_by_name( $name )
+
+Returns the routine definitions (see L<MySQL::Diff:Routine>) for the given routine name
+
+=cut
+
+sub routine_by_name {
+    my ($self,$name,$type) = @_;
+    # epic fail: before i try to get it as $self->{r_by_name}{$name}{$type}; 
+    return $self->{r_by_name}{$type}{$name};
+}
+
+=item * get_order( $type )
+
+Returns sorting order for entities of type $type (tables, views or routines)
+
+=cut
+
+sub get_order {
+    my ($self, $type) = @_;
+    my $k = $type."_order";
+    return $self->{$k};
 }
 
 =back
@@ -171,6 +257,7 @@ Note that is used as a function call, not a method call.
 =cut
 
 sub available_dbs {
+    debug(1, "Started to get available databases list");
     my %auth = @_;
     my $args = _auth_args_string(%auth);
   
@@ -198,13 +285,13 @@ sub _canonicalise_file {
     my ($self, $file) = @_;
 
     $self->{_source}{file} = $file;
-    debug(2,"fetching table defs from file $file");
+    debug(1,"fetching table defs from file $file");
 
     # FIXME: option to avoid create-and-dump bit
     # create a temporary database using defs from file ...
     # hopefully the temp db is unique!
     my $temp_db = sprintf "test_mysqldiff-temp-%d_%d_%d", time(), $$, rand();
-    debug(3,"creating temporary database $temp_db");
+    debug(1,"creating temporary database $temp_db");
   
     my $defs = read_file($file);
     die "$file contains dangerous command '$1'; aborting.\n"
@@ -220,7 +307,7 @@ sub _canonicalise_file {
     # MySQL to massage the defs file into canonical form.
     $self->_get_defs($temp_db);
 
-    debug(3,"dropping temporary database $temp_db");
+    debug(1,"dropping temporary database $temp_db");
     $fh = IO::File->new("| mysql $args") or die "Couldn't execute 'mysql$args': $!\n";
     print $fh "DROP DATABASE \`$temp_db\`;\n";
     $fh->close;
@@ -229,7 +316,9 @@ sub _canonicalise_file {
 sub _read_db {
     my ($self, $db) = @_;
     $self->{_source}{db} = $db;
-    debug(3, "fetching table defs from db $db");
+    # store database name, if it's not temporary database
+    $self->{db_name} = $db;
+    debug(1, "fetching table defs from db $db");
     $self->_get_defs($db);
 }
 
@@ -237,13 +326,22 @@ sub _get_defs {
     my ($self, $db) = @_;
 
     my $args = $self->{_source}{auth};
-    my $fh = IO::File->new("mysqldump -d $args $db 2>&1 |")
+    my $start_time = time();
+    my $dump_errors_folder = get_logdir() . '/' . 'dump_errors_' . $db;
+    mkdir $dump_errors_folder;
+    my $errors_fname =  $dump_errors_folder . '/dump_errors_' . time(). '_' . generate_random_string() . '.log';
+    if (!$self->{db_name}) {
+        $self->{temp_db_name} = $db;
+    }
+    my $fh = IO::File->new("mysqldump -d -q --single-transaction --force --skip-triggers $args $db 2>$errors_fname |")
         or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
-    debug(3, "running mysqldump -d $args $db");
+    debug(6, "running mysqldump -d $args $db");
     my $defs = $self->{_defs} = [ <$fh> ];
     $fh->close;
-
-    if (grep /mysqldump: Got error: .*: Unknown database/, @$defs) {
+    open(DUMP_ERRS, "<$errors_fname");
+    my(@errs_lines) = <DUMP_ERRS>;
+    debug(6, "dump time: ".(time() - $start_time));
+    if (grep /mysqldump: Got error: .*: Unknown database/, @errs_lines) {
         die <<EOF;
 Failed to create temporary database $db
 during canonicalization.  Make sure that your mysql.db table has a row
@@ -251,6 +349,7 @@ authorizing full access to all databases matching 'test\\_%', and that
 the database doesn't already exist.
 EOF
     }
+    close (DUMP_ERRS);
 }
 
 sub _parse_defs {
@@ -258,18 +357,135 @@ sub _parse_defs {
 
     return if $self->{_tables};
 
-    debug(2, "parsing table defs");
-    my $defs = join '', grep ! /^\s*(\#|--|SET|\/\*)/, @{$self->{_defs}};
-    $defs =~ s/`//sg;
-    my @tables = split /(?=^\s*(?:create|alter|drop)\s+table\s+)/im, $defs;
+    debug(1, "parsing tables defs");
+    my $defs = join '', @{$self->{_defs}};
+    my $c = get_save_quotes();
+    if (!$c) {
+        $defs =~ s/`//sg;
+    }
+    
+    my $db_log = '';
+    my $dbh;
+    if ($self->{db_name}) {
+        $db_log = $self->{db_name};
+    } else {
+        $db_log = $self->{temp_db_name};
+    }
+    write_log('defs_before_'.$db_log.'.sql', $defs);
+    
+    $defs =~ s/(\#|--).*?\n//g; # delete singleline comments
+    $defs =~ s/\/\*\!\d+\s+SET\s+.*?;\s*//ig; # delete SETs
+    $defs =~ s/\/\*\!\d+\s+(.*?)\*\//\n$1/gs; # get content from executable comments
+    $defs =~ s/\/\*.*?\*\/\s*//gs; #delete all multiline comments
+    
+    if ($self->{db_name}) {
+        my $dsn = "DBI:mysql:$self->{db_name}:$self->{auth_data}{host}";
+        my $db_user_name = $self->{auth_data}{user};
+        my $db_password = $self->{auth_data}{password};
+        $dbh = DBI->connect($dsn, $db_user_name, $db_password);
+        $dbh->do(qq{SET NAMES 'utf8';});
+        # TODO: refactoring
+        # get triggers
+        my $sth = $dbh->prepare(qq{SHOW TRIGGERS});
+        $sth->execute();
+        my @triggers_list = ();
+        while (my @row = $sth->fetchrow_array()) {
+            push(@triggers_list, $row[0]);
+        }
+        $sth->finish();
+        # get procedures
+        $sth = $dbh->prepare(qq{SHOW PROCEDURE STATUS WHERE Db='$self->{db_name}'});
+        $sth->execute();
+        my @procedures_list = ();
+        while (my @row = $sth->fetchrow_array()) {
+            push(@procedures_list, $row[1]);
+        }    
+        $sth->finish();
+        # get functions
+        $sth = $dbh->prepare(qq{SHOW FUNCTION STATUS WHERE Db='$self->{db_name}'});
+        $sth->execute();
+        my @functions_list = ();
+        while (my @row = $sth->fetchrow_array()) {
+            push(@functions_list, $row[1]);
+        }    
+        $sth->finish();
+        my $routines_list;
+        $routines_list->{TRIGGER} = [@triggers_list];
+        $routines_list->{PROCEDURE} = [@procedures_list];
+        $routines_list->{FUNCTION}= [@functions_list];
+        for my $entity (keys %$routines_list) {
+            my @routines_sublist = @{$routines_list->{$entity}};
+            if (@routines_sublist) {
+                foreach (@routines_sublist) {
+                    my $s = qq{SHOW CREATE $entity $_};
+                    $sth = $dbh->prepare($s);
+                    $sth->execute();
+                    my @row = $sth->fetchrow_array();
+                    $defs .= "\n$row[2]";
+                    $sth->finish();
+                }
+            }
+        }
+    }
+
+    write_log('defs_after_'.$db_log.'.sql', $defs);
+
+    my @tables = split /(?=^\s*(?:create|alter|drop)\s+(?:table|.*?view|.*?function|.*?procedure|.*?trigger)\s+)/ims, $defs;
     $self->{_tables} = [];
+    $self->{_views} = [];
+    $self->{_routines} = [];
+    my $counters;
+    $counters->{tables} = 0;
+    $counters->{views} = 0;
+    $counters->{routines} = 0;
     for my $table (@tables) {
-        debug(4, "  table def [$table]");
+        debug(5, "  table def [$table]");
         if($table =~ /create\s+table/i) {
             my $obj = MySQL::Diff::Table->new(source => $self->{_source}, def => $table);
-            push @{$self->{_tables}}, $obj;
             $self->{_by_name}{$obj->name()} = $obj;
+            $self->{tables_order}{$obj->name()} = $counters->{tables};
+            $counters->{tables} += 1;
+        } 
+        elsif ($table =~ /create\s+.*?\s+view/is) {
+            my $obj = MySQL::Diff::View->new(source => $self->{_source}, def => $table);
+            $self->{v_by_name}{$obj->name()} = $obj;
+            if ($self->{_by_name}{$obj->name()}) {
+                $self->{_temp_view_tables}{$obj->name()} = 1;
+                delete($self->{_by_name}{$obj->name()});
+            }
+            $self->{views_order}{$obj->name()} = $counters->{views};
+            $counters->{views} += 1;
         }
+        elsif ($table =~ /create\s+.*?\s+(trigger|function|procedure)/is) {
+            my $obj = MySQL::Diff::Routine->new(source => $self->{_source}, def => $table);
+            $self->{r_by_name}{$obj->type()}{$obj->name()} = $obj;
+            $self->{routines_order}{$obj->name()} = $counters->{routines};
+            $counters->{routines} += 1;
+            push @{$self->{_routines}}, $obj;
+        }
+    }
+    if ($self->{db_name}) {
+            my $sth;
+            my $fields_s = '';
+            for my $temp_table (keys %{$self->{_temp_view_tables}}) {
+                $sth = $dbh->prepare(qq{SHOW FIELDS FROM $temp_table});
+                $sth->execute();
+                my @f_list = ();
+                while (my @row = $sth->fetchrow_array()) {
+                        # push concatenated string consists of field name and type
+                        push(@f_list, $row[0].' '.$row[1]);
+                }
+                $sth->finish();
+                $fields_s = join ', ', @f_list;
+                $self->{_temp_view_tables}{$temp_table} = "CREATE TABLE $temp_table ($fields_s);"; 
+            }
+            $dbh->disconnect();
+    }
+    for my $t (keys %{$self->{_by_name}}) {
+        push @{$self->{_tables}}, $self->{_by_name}{$t};
+    }
+    for my $v (keys %{$self->{v_by_name}}) {
+        push @{$self->{_views}}, $self->{v_by_name}{$v};
     }
 }
 
