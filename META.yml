@@ -15,16 +15,16 @@ name: MySQL-Diff
 provides:
   MySQL::Diff:
     file: lib/MySQL/Diff.pm
-    version: 0.43
+    version: 0.44
   MySQL::Diff::Database:
     file: lib/MySQL/Diff/Database.pm
-    version: 0.43
+    version: 0.44
   MySQL::Diff::Table:
     file: lib/MySQL/Diff/Table.pm
-    version: 0.43
+    version: 0.44
   MySQL::Diff::Utils:
     file: lib/MySQL/Diff/Utils.pm
-    version: 0.43
+    version: 0.44
 requires:
   Carp: 0
   File::Slurp: 0
@@ -35,4 +35,4 @@ resources:
   homepage: http://adamspiers.org/computing/mysqldiff/
   license: http://dev.perl.org/licenses/
   repository: http://github.com/aspiers/mysqldiff
-version: 0.43
+version: 0.44
