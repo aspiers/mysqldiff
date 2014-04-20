@@ -23,7 +23,7 @@ the second.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.44';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -112,7 +112,6 @@ the schema of the first database into that of the second.
 
 sub diff {
     my $self = shift;
-    my $table_re = $self->{opts}{'table-re'};
     my @changes;
 
     debug(1, "\ncomparing databases");
@@ -120,10 +119,6 @@ sub diff {
     for my $table1 ($self->db1->tables()) {
         my $name = $table1->name();
         debug(4, "table 1 $name = ".Dumper($table1));
-        if ($table_re && $name !~ $table_re) {
-            debug(2,"table '$name' didn't match /$table_re/; ignoring");
-            next;
-        }
         debug(2,"looking at tables called '$name'");
         if (my $table2 = $self->db2->table_by_name($name)) {
             debug(3,"comparing tables called '$name'");
@@ -138,10 +133,6 @@ sub diff {
     for my $table2 ($self->db2->tables()) {
         my $name = $table2->name();
         debug(4, "table 2 $name = ".Dumper($table2));
-        if ($table_re && $name !~ $table_re) {
-            debug(2,"table '$name' matched $self->{opts}{'table-re'}; ignoring");
-            next;
-        }
         if (! $self->db1->table_by_name($name)) {
             debug(3,"table '$name' added");
             debug(4,"table '$name' added '".$table2->def()."'");
@@ -424,7 +415,7 @@ sub _load_database {
     }
 
     if ($arg =~ /^db:(.*)/) {
-        return MySQL::Diff::Database->new(db => $1, auth => \%auth);
+        return MySQL::Diff::Database->new(db => $1, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
     }
 
     if ($self->{opts}{"dbh"}              ||
@@ -433,18 +424,18 @@ sub _load_database {
         $self->{opts}{"user$authnum"}     ||
         $self->{opts}{"password$authnum"} ||
         $self->{opts}{"socket$authnum"}) {
-        return MySQL::Diff::Database->new(db => $arg, auth => \%auth);
+        return MySQL::Diff::Database->new(db => $arg, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
     }
 
     if (-f $arg) {
-        return MySQL::Diff::Database->new(file => $arg, auth => \%auth);
+        return MySQL::Diff::Database->new(file => $arg, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
     }
 
     my %dbs = MySQL::Diff::Database::available_dbs(%auth);
     debug(2, "  available databases: ", (join ', ', keys %dbs), "\n");
 
     if ($dbs{$arg}) {
-        return MySQL::Diff::Database->new(db => $arg, auth => \%auth);
+        return MySQL::Diff::Database->new(db => $arg, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
     }
 
     warn "'$arg' is not a valid file or database.\n";
