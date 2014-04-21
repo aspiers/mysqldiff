@@ -26,7 +26,7 @@ Parses a database definition into component parts.
 use warnings;
 use strict;
 
-our $VERSION = '0.43';
+our $VERSION = '0.44';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -67,6 +67,7 @@ sub new {
     debug(3,"auth args: $string");
     $self->{_source}{auth} = $string;
     $self->{_source}{dbh} = $p{dbh} if($p{dbh});
+    $self->{'table-re'} = $p{'table-re'};
 
     if ($p{file}) {
         $self->_canonicalise_file($p{file});
@@ -177,14 +178,10 @@ sub available_dbs {
     # evil but we don't use DBI because I don't want to implement -p properly
     # not that this works with -p anyway ...
     my $fh = IO::File->new("mysqlshow$args |") or die "Couldn't execute 'mysqlshow$args': $!\n";
-    my @dbs;
-    while (<$fh>) {
-        next unless /^\| ([\w-]+)/;
-        push @dbs, $1;
-    }
+    my $dbs_ref = _parse_mysqlshow_from_fh_into_arrayref($fh);
     $fh->close() or die "mysqlshow$args failed: $!";
 
-    return map { $_ => 1 } @dbs;
+    return map { $_ => 1 } @{$dbs_ref};
 }
 
 =back
@@ -233,17 +230,66 @@ sub _read_db {
     $self->_get_defs($db);
 }
 
-sub _get_defs {
-    my ($self, $db) = @_;
+sub _get_tables_to_dump {
+    my ( $self, $db ) = @_;
+
+    my $tables_ref = $self->_get_tables_in_db($db);
+
+    my $compiled_table_re = qr/$self->{'table-re'}/;
+
+    my @matching_tables = grep { $_ =~ $compiled_table_re } @{$tables_ref};
+
+    return join( ' ', @matching_tables );
+}
+
+sub _get_tables_in_db {
+    my ( $self, $db ) = @_;
 
     my $args = $self->{_source}{auth};
-    my $fh = IO::File->new("mysqldump -d $args $db 2>&1 |")
-        or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
-    debug(3, "running mysqldump -d $args $db");
-    my $defs = $self->{_defs} = [ <$fh> ];
+
+    # evil but we don't use DBI because I don't want to implement -p properly
+    # not that this works with -p anyway ...
+    my $fh = IO::File->new("mysqlshow$args $db|")
+      or die "Couldn't execute 'mysqlshow$args $db': $!\n";
+    my $tables_ref = _parse_mysqlshow_from_fh_into_arrayref($fh);
+    $fh->close() or die "mysqlshow$args $db failed: $!";
+
+    return $tables_ref;
+}
+
+# Note that is used as a function call, not a method call.
+sub _parse_mysqlshow_from_fh_into_arrayref {
+    my ($fh) = @_;
+
+    my @items;
+    while (<$fh>) {
+        next unless /^\| ([\w-]+)/;
+        push @items, $1;
+    }
+
+    return \@items;
+}
+
+sub _get_defs {
+    my ( $self, $db ) = @_;
+
+    my $args   = $self->{_source}{auth};
+    my $tables = '';                       #dump all tables by default
+    if ( my $table_re = $self->{'table-re'} ) {
+        $tables = $self->_get_tables_to_dump($db);
+        if ( !length $tables ) {           # No tables to dump
+            $self->{_defs} = [];
+            return;
+        }
+    }
+
+    my $fh = IO::File->new("mysqldump -d $args $db $tables 2>&1 |")
+      or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
+    debug( 3, "running mysqldump -d $args $db $tables" );
+    my $defs = $self->{_defs} = [<$fh>];
     $fh->close;
 
-    if (grep /mysqldump: Got error: .*: Unknown database/, @$defs) {
+    if ( grep /mysqldump: Got error: .*: Unknown database/, @$defs ) {
         die <<EOF;
 Failed to create temporary database $db
 during canonicalization.  Make sure that your mysql.db table has a row
@@ -251,6 +297,7 @@ authorizing full access to all databases matching 'test\\_%', and that
 the database doesn't already exist.
 EOF
     }
+    return;
 }
 
 sub _parse_defs {

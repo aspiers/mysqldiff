@@ -452,8 +452,8 @@ my @tests = (keys %tests); #keys %tests
       my $diff = MySQL::Diff->new(%$opts, %debug);
       isa_ok($diff,'MySQL::Diff');
 
-      my $db1 = get_db($db1_defs, 1);
-      my $db2 = get_db($db2_defs, 2);
+      my $db1 = get_db($db1_defs, 1, $opts->{'table-re'});
+      my $db2 = get_db($db2_defs, 2, $opts->{'table-re'});
 
       my $d1 = $diff->register_db($db1, 1);
       my $d2 = $diff->register_db($db2, 2);
@@ -487,7 +487,7 @@ my @tests = (keys %tests); #keys %tests
       is_deeply($diffs, $expected, ".. expected differences for $test");
 
       # Now test that $diffs correctly patches $db1_defs to $db2_defs.
-      my $patched = get_db($db1_defs . "\n" . $diffs, 1);
+      my $patched = get_db($db1_defs . "\n" . $diffs, 1, $opts->{'table-re'});
       $diff->register_db($patched, 1);
       is_deeply($diff->diff(), '', ".. patched differences for $test");
     }
@@ -495,7 +495,7 @@ my @tests = (keys %tests); #keys %tests
 
 
 sub get_db {
-    my ($defs, $num) = @_;
+    my ($defs, $num, $table_re) = @_;
 
     note("defs=$defs");
 
@@ -503,7 +503,7 @@ sub get_db {
     open(TMP, ">$file") or die "open: $!";
     print TMP $defs;
     close(TMP);
-    my $db = MySQL::Diff::Database->new(file => $file, auth => { user => $TEST_USER });
+    my $db = MySQL::Diff::Database->new(file => $file, auth => { user => $TEST_USER }, 'table-re' => $table_re);
     unlink $file;
     return $db;
 }
