@@ -16,3 +16,5 @@ Build.bat
 META.yml
 MYMETA.yml
 MYMETA.json
+Debian_CPANTS.txt
+debug.log
