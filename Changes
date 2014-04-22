@@ -4,7 +4,7 @@
         - optimized the --table-re option to exclude
           tables before comparing them as this would
           cause significant slowdowns in databases
-          with lots of tables.
+          with lots of tables. (bdraco)
 
 0.43    6th October 2011
         - fix missing fields in CPAN meta-data
