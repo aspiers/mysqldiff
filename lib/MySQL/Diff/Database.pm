@@ -66,7 +66,7 @@ sub new {
     my $string = _auth_args_string(%{$p{auth}});
     debug(3,"auth args: $string");
     $self->{_source}{auth} = $string;
-    $self->{_source}{dbh} = $p{dbh} if($p{dbh});
+    $self->{_source}{dbh} = $p{dbh} if $p{dbh};
     $self->{'table-re'} = $p{'table-re'};
 
     if ($p{file}) {
