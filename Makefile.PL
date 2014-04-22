@@ -2,7 +2,7 @@
 
 use strict;
 
-require 5.005003;
+require 5.006; #use_base_exporter in MySQL::Diff::Utils is usable with 5.6
 
 use ExtUtils::MakeMaker;
 # See lib/ExtUtils/MakeMaker.pm for details of how to influence
@@ -24,7 +24,6 @@ WriteMakefile1(
                 web  => 'http://github.com/aspiers/mysqldiff',
                 type => 'git',
             },
-            #repository => 'http://github.com/aspiers/mysqldiff',
         },
     },
     MIN_PERL_VERSION => '5.006',

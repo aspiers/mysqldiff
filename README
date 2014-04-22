@@ -9,7 +9,7 @@ comparing the schema (table structures) of two MySQL databases.
 Prerequisites
 -------------
 
-This suite probably requires Perl 5.005 or higher.
+This suite requires Perl 5.006 or higher.
 
 Availability
 ------------
@@ -36,9 +36,11 @@ Documentation at CPAN: http://search.cpan.org/dist/MySQL-Diff/
 Support
 -------
 
-Questions, patches, and suggestions for MySQL-Diff should just be sent
-to me at <mysqldiff@adamspiers.org>.  Bug reports should be submitted 
-at the website below.
+Questions and suggestions for MySQL-Diff should just be sent
+to me at <mysqldiff@adamspiers.org>.
+Patches should be sent as pull requests to http://github.com/aspiers/mysqldiff
+See https://github.com/aspiers/mysqldiff/wiki
+Bug reports should be submitted at the website below.
 
 Known bugs
 ----------
