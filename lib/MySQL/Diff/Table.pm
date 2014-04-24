@@ -183,7 +183,7 @@ sub _parse {
 
         if (/^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)(?:\s+USING\s+(?:BTREE|HASH|RTREE))?\s*\((.*)\)$/) {
             my ($type, $key, $val) = ($1, $2, $3);
-            croak "index '$key' duplicated in table '$name'\n"
+            croak "index '$key' duplicated in table '$self->{name}'\n"
                 if $self->{indices}{$key};
             $self->{indices}{$key} = $val;
             $self->{unique}{$key} = 1   if($type =~ /unique/i);
@@ -193,7 +193,7 @@ sub _parse {
 
         if (/^(FULLTEXT(?:\s+KEY|INDEX)?)\s+(\S+?)\s*\((.*)\)$/) {
             my ($type, $key, $val) = ($1, $2, $3);
-            croak "FULLTEXT index '$key' duplicated in table '$name'\n"
+            croak "FULLTEXT index '$key' duplicated in table '$self->{name}'\n"
                 if $self->{fulltext}{$key};
             $self->{indices}{$key} = $val;
             $self->{fulltext}{$key} = 1;
@@ -209,7 +209,7 @@ sub _parse {
 
         if (/^(\S+)\s*(.*)/) {
             my ($field, $fdef) = ($1, $2);
-            croak "definition for field '$field' duplicated in table '$name'\n"
+            croak "definition for field '$field' duplicated in table '$self->{name}'\n"
                 if $self->{fields}{$field};
             $self->{fields}{$field} = $fdef;
             debug(4,"got field def '$field': $fdef");
