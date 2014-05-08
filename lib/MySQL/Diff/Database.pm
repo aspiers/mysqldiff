@@ -191,6 +191,11 @@ sub available_dbs {
 # ------------------------------------------------------------------------------
 # Private Methods
 
+sub auth_args {
+  my $self = shift;
+  return _auth_args_string();
+}
+
 sub _canonicalise_file {
     my ($self, $file) = @_;
 
