@@ -6,9 +6,9 @@ mysqldiff - compare MySQL database schemas
 
 =head1 SYNOPSIS
 
-mysqldiff [B<options>] B<database1> B<database2>
+    mysqldiff [B<options>] B<database1> B<database2>
 
-mysqldiff --help
+    mysqldiff --help
 
 =head1 DESCRIPTION
 
@@ -206,7 +206,7 @@ sub apply {
 
 =head1 BUGS, DEVELOPMENT, CONTRIBUTING
 
-See L<http://software.adamspiers.org/wiki/mysqldiff>.
+See L<http://adamspiers.org/computing/mysqldiff/>.
 
 =head1 COPYRIGHT AND LICENSE
 
