@@ -1,21 +1,14 @@
-# **This project is currently unmaintained!**
-
-Please see https://github.com/aspiers/mysqldiff/issues/14 for more information.
-
-**You may want to consider using [the official upstream utility](https://dev.mysql.com/doc/mysql-utilities/1.6/en/mysqldiff.html) with the same name.**
-
-
 MySQL-Diff
 ==========
 
-MySQL-Diff is suite of Perl modules and accompanying CLI script
-`mysqldiff` for comparing the schema (table structures) of two MySQL
-databases.
+MySQL-Diff is a suite of Perl modules and accompanying CLI script
+`mysqldiff` for comparing the schemas of two MySQL/MariaDB databases.
 
 Prerequisites
 -------------
 
-This suite requires Perl 5.006 or higher.
+This suite requires Perl 5.006 or higher and a MySQL compatible suite
+of client utilities (mysql and mysqldump).
 
 Availability
 ------------
@@ -42,18 +35,22 @@ Documentation
 Support
 -------
 
-This project is not currently supported due to the presence of
-technically superior alternatives and programming languages.
-Please see https://github.com/aspiers/mysqldiff/issues/14
+Patches should be sent as pull requests to http://github.com/aspiers/mysqldiff
 
-Known bugs
-----------
+Please see the CONTRIBUTING file for more information.
+
+New bug reports and feature requests
+------------------------------------
+
+https://github.com/aspiers/mysqldiff/issues
+
+Other known bugs
+----------------
 
 See https://rt.cpan.org/Public/Dist/Display.html?Name=MySQL-Diff
 
-Copyright
----------
+License
+-------
 
-(c) 2000-2011 Adam Spiers <mysqldiff@adamspiers.org>, all rights reserved.
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
