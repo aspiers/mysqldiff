@@ -24,7 +24,7 @@ and from the Comprehensive Perl Archive Network (CPAN).  Visit
 Installation
 ------------
 
-See INSTALL file.
+See the [`INSTALL`](INSTALL) file.
 
 Documentation
 -------------
@@ -37,7 +37,8 @@ Support
 
 Patches should be sent as pull requests to http://github.com/aspiers/mysqldiff
 
-Please see the CONTRIBUTING file for more information.
+Please see the [`CONTRIBUTING.md`](CONTRIBUTING.md) file for more
+information.
 
 New bug reports and feature requests
 ------------------------------------
