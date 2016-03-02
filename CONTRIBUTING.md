@@ -12,14 +12,14 @@ First check your issue hasn't already been reported on
 or (GitHub)[https://github.com/aspiers/mysqldiff/issues].  Then
 proceed appropriately:
 
-1. first create an Issue - https://github.com/aspiers/mysqldiff/issues;
-2. fork the main repo
-3. create an Issue branch, e.g., "Issue-XX-blah-foo-derp"
-4. make commits of logical units.
-5. check for unnecessary whitespace with `git diff --check` before committing.
-6. make sure your commit messages summarize your changes well enough.
-7. make sure you have added the necessary tests for your changes.
-8. issue a proper pull request
+1. (File a new issue)[https://github.com/aspiers/mysqldiff/issues/new]
+2. Fork the main repo
+3. Create an issue branch, e.g., "Issue-XX-blah-foo-derp"
+4. Make commits of logical units (see below).
+5. Check for unnecessary whitespace with `git diff --check` before committing.
+6. Make sure your commit messages summarize your changes well enough.
+7. Make sure you have added the necessary tests for your changes.
+8. Issue a proper pull request.
 
 # Commits, pull request, and commit message format
 
