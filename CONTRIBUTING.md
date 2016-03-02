@@ -23,14 +23,17 @@ proceed appropriately:
 
 # Commits, pull request, and commit message format
 
-1. please squash commits
-2. do not mix new features together, or with bug fixes
-3. use a structured commit messsage;
+See [this page](https://wiki.openstack.org/wiki/GitCommitMessages#Structural_split_of_changes)
+for some excellent advice on structuring commits correctly.
 
-For example, 
+1. Please squash commits which relate to the same thing.
+2. Do not mix new features together, or with bug fixes.
+3. Use a structured commit messsage.
+
+For example,
 
     Fixed the foobar bug with the flim-flam.
-    
+
     Issue-XX: Made changes to the flux memristor so
     that the space time continuum would remain consisitent
     for the key constraint mechanism.  Added a few unit tests
