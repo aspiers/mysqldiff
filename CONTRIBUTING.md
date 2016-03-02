@@ -1,6 +1,7 @@
 # Good reading
 
-  https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/
+- https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/
+- http://blog.adamspiers.org/2012/11/10/7-principles-for-contributing-patches-to-software-projects/
 
 # How to contribute
 
