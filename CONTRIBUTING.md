@@ -7,6 +7,11 @@
 
 Contributing is easy.
 
+First check your issue hasn't already been reported on
+(CPAN)[https://rt.cpan.org/Public/Dist/Display.html?Name=MySQL-Diff]
+or (GitHub)[https://github.com/aspiers/mysqldiff/issues].  Then
+proceed appropriately:
+
 1. first create an Issue - https://github.com/aspiers/mysqldiff/issues;
 2. fork the main repo
 3. create an Issue branch, e.g., "Issue-XX-blah-foo-derp"
