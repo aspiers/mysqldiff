@@ -1,10 +1,3 @@
-# **This project is currently unmaintained!**
-
-Please see https://github.com/aspiers/mysqldiff/issues/14 for more information.
-
-**You may want to consider using [the official upstream utility](https://dev.mysql.com/doc/mysql-utilities/1.6/en/mysqldiff.html) with the same name.**
-
-
 MySQL-Diff
 ==========
 
@@ -42,9 +35,20 @@ Documentation
 Support
 -------
 
-This project is not currently supported due to the presence of
-technically superior alternatives and programming languages.
-Please see https://github.com/aspiers/mysqldiff/issues/14
+**Please first check that your bug / issue / enhancement request /
+question is not already listed here**:
+
+*   https://github.com/aspiers/mysqldiff/issues
+
+and if not then
+[file a new issue](https://github.com/aspiers/mysqldiff/issues/new).
+
+Alternative options
+-------------------
+
+**You may want to consider using
+[the official upstream utility](https://dev.mysql.com/doc/mysql-utilities/1.6/en/mysqldiff.html)
+with the same name.**
 
 Known bugs
 ----------
@@ -54,6 +58,8 @@ See https://rt.cpan.org/Public/Dist/Display.html?Name=MySQL-Diff
 Copyright
 ---------
 
-(c) 2000-2011 Adam Spiers <mysqldiff@adamspiers.org>, all rights reserved.
+(c) 2000 Adam Spiers <mysqldiff@adamspiers.org> and other
+contributors (as shown by the git history); all rights reserved.
+
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
