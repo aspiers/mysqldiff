@@ -185,7 +185,7 @@ CREATE TABLE bar (
   name char(16) default NULL,
   age int(11) default NULL,
   PRIMARY KEY (id)
-) ENGINE=InnoDB DEFAULT CHARSET=latin1;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8;
 
 ',
   ],
