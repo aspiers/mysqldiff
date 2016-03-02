@@ -55,3 +55,9 @@ License
 
 This program is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself.
+
+Copyright
+---------
+
+(c) 2000-2016 Adam Spiers <mysqldiff@adamspiers.org> and other contributors (as shown
+by the git history); all rights reserved.
