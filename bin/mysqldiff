@@ -116,7 +116,7 @@ GetOptions(\%opts, "help|?", "debug|d:i", "apply|A", "batch-apply|B",
            "host|h=s", "port|P=s", "socket|s=s", "user|u=s", "password|p:s",
            "host1=s",  "port1=s",  "socket1=s",  "user1=s",  "password1:s",
            "host2=s",  "port2=s",  "socket2=s",  "user2=s",  "password2:s",
-           "tolerant|i"
+           "tolerant|i", "list-tables|l"
           ) or usage();
 
 usage() if (@ARGV != 2 or $opts{help});
@@ -149,6 +149,7 @@ Options:
   -A,  --apply            interactively patch database1 to match database2
   -B,  --batch-apply      non-interactively patch database1 to match database2
   -d,  --debug[=N]        enable debugging [level N, default 1]
+  -l,  --list-tables      output the list off all used tables
   -o,  --only-both        only output changes for tables in both databases
   -k,  --keep-old-tables  don't output DROP TABLE commands
   -n,  --no-old-defs      suppress comments describing old definitions
