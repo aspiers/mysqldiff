@@ -113,11 +113,13 @@ the schema of the first database into that of the second.
 sub diff {
     my $self = shift;
     my @changes;
+    my %used_tables = ();
 
     debug(1, "\ncomparing databases");
 
     for my $table1 ($self->db1->tables()) {
         my $name = $table1->name();
+        $used_tables{'-- '. $name} = 1;
         debug(4, "table 1 $name = ".Dumper($table1));
         debug(2,"looking at tables called '$name'");
         if (my $table2 = $self->db2->table_by_name($name)) {
@@ -132,6 +134,7 @@ sub diff {
 
     for my $table2 ($self->db2->tables()) {
         my $name = $table2->name();
+        $used_tables{'-- '. $name} = 1;
         debug(4, "table 2 $name = ".Dumper($table2));
         if (! $self->db1->table_by_name($name)) {
             debug(3,"table '$name' added");
@@ -145,7 +148,14 @@ sub diff {
 
     my $out = '';
     if (@changes) {
-        $out .= $self->_diff_banner();
+        if (!$self->{opts}{'list-tables'}) {
+            $out .= $self->_diff_banner();
+        }
+        else {
+            $out .= "-- TABLES LIST \n";
+            $out .= join "\n", keys %used_tables;
+            $out .= "\n-- END OF TABLES LIST \n";
+        }
         $out .= join '', @changes;
     }
     return $out;
@@ -184,6 +194,7 @@ sub _diff_tables {
         $self->_diff_fields(@_),
         $self->_diff_indices(@_),
         $self->_diff_primary_key(@_),
+        $self->_diff_foreign_key(@_),
         $self->_diff_options(@_)        
     );
 
@@ -342,6 +353,54 @@ sub _diff_primary_key {
         $changes .= "\nALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n";
         $changes .= "ALTER TABLE $name1 DROP INDEX $auto;\n"    if($auto);
         push @changes, $changes;
+    }
+
+    return @changes;
+}
+
+sub _diff_foreign_key {
+    my ($self, $table1, $table2) = @_;
+
+    my $name1 = $table1->name();
+
+    my $fks1 = $table1->foreign_key();
+    my $fks2 = $table2->foreign_key();
+
+    return () unless $fks1 || $fks2;
+
+    my @changes;
+  
+    if($fks1) {
+        for my $fk (keys %$fks1) {
+            debug(1,"$name1 has fk '$fk'");
+
+            if ($fks2 && $fks2->{$fk}) {
+                if($fks1->{$fk} ne $fks2->{$fk}) 
+                {
+                    debug(1,"foreign key '$fk' changed");
+                    my $changes = "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
+                    $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
+                        unless $self->{opts}{'no-old-defs'};
+                    $changes .= "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
+                    push @changes, $changes;
+                }
+            } else {
+                debug(1,"foreign key '$fk' removed");
+                my $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
+                $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
+                        unless $self->{opts}{'no-old-defs'};
+                $changes .= "\n";
+                push @changes, $changes;
+            }
+        }
+    }
+
+    if($fks2) {
+        for my $fk (keys %$fks2) {
+            next    if($fks1 && $fks1->{$fk});
+            debug(1, "foreign key '$fk' added");
+            push @changes, "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
+        }
     }
 
     return @changes;
