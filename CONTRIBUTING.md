@@ -48,4 +48,4 @@ If fixing a bug, please add a regression test.
 
 # Questions
 
-When in doubt, issue a pull request. Feel free to email be, B. Estrade <estrabd@gmail.com>.
+When in doubt, issue a pull request. Feel free to email B. Estrade <estrabd@gmail.com>.
