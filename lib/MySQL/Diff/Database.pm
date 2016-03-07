@@ -290,9 +290,11 @@ sub _get_defs {
 
     my $fh = IO::File->new("mysqldump -d $args $db $tables 2>&1 |")
       or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
+
     debug( 3, "running mysqldump -d $args $db $tables" );
     my $defs = $self->{_defs} = [<$fh>];
     $fh->close;
+    my $exit_status = $? >> 8;
 
     if ( grep /mysqldump: Got error: .*: Unknown database/, @$defs ) {
         die <<EOF;
@@ -301,6 +303,10 @@ during canonicalization.  Make sure that your mysql.db table has a row
 authorizing full access to all databases matching 'test\\_%', and that
 the database doesn't already exist.
 EOF
+    } elsif ($exit_status) {
+        # If mysqldump exited with a non-zero status, then
+        # we can not reliably make a diff, so better to die and bubble that error up.
+        die "mysqldump failed. Exit status: $exit_status:\n" . join( "\n", @{$defs} );
     }
     return;
 }
