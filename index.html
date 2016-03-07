@@ -1,0 +1,153 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN"
+          "http://www.w3.org/TR/REC-html4/loose.dtd">
+
+<html>
+
+<head>
+  <link rel="stylesheet" type="text/css" href="../../style/default.css">
+  <link rev="made" href="mailto:adam@spiers.net">
+  <link rel="copyright" href="http://www.opencontent.org/opl.shtml"
+        title="&copy; 1995--2003 Adam Spiers">
+  <link rel="start" href="http://adamspiers.org/docs/index.html">
+  <link rel="up" href="http://adamspiers.org/docs/computing/my-software.html">
+  <link rel="next" href="http://adamspiers.org/docs/computing/parp/index.html">
+  <link rel="prev" href="http://adamspiers.org/docs/computing/HTML-Navigation/index.html">
+
+  <meta name="DC.Title" content="mysqldiff -- a utility for comparing MySQL database structures">
+  <meta name="author" content="Adam Spiers">
+  <meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+  <meta name="geo.position" content="51.5361;-0.1881">
+  <meta name="geo.region" content="GB-LND">
+  <meta name="geo.placename" content="St John's Wood">
+  <title>mysqldiff -- a utility for comparing MySQL database structures</title>
+<script type="text/javascript">
+
+  var _gaq = _gaq || [];
+  _gaq.push(['_setAccount', 'UA-8543662-3']);
+  _gaq.push(['_trackPageview']);
+
+  (function() {
+    var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;
+    ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);
+  })();
+
+</script>
+</head>
+<body>
+
+
+<h1>mysqldiff -- a utility for comparing MySQL database structures</h1>
+
+<div class="navbar" style="text-align: center">
+  <a href="#intro">Intro</a> |
+  <a href="#download">Download</a> |
+  <a href="#usage">Usage</a> |
+  <a href="#how">How does it work?</a> |
+  <a href="#dev">Support / development / bug tracker</a>
+</div>
+
+<p class="warning">
+<img src="/imgs/new.gif" alt="New!">
+Update 2011/11/6: Finally a new release! (0.43) - available here or from CPAN.
+</p>
+
+<h2><a name="intro">What does it do?</a></h2>
+
+<p> <a href="http://search.cpan.org/dist/MySQL-Diff/bin/mysqldiff"><tt class="executable">mysqldiff</tt></a> is a <a href="http://www.perl.com/">Perl</a> script front-end to the
+<a href="http://www.perl.com/CPAN">CPAN</a> module <a href="http://search.cpan.org/dist/MySQL-Diff"><tt class="library">MySQL::Diff</tt></a> which compares the data
+structures (i.e. schema / table definitions) of two <a
+href="http://www.mysql.com/">MySQL</a> databases, and returns the
+differences as a sequence of MySQL commands suitable for piping into
+<tt class="executable">mysql</tt> which will transform the structure of the first
+database to be identical to that of the second (<i>c.f.</i>
+<tt class="executable">diff</tt> and <tt class="executable">patch</tt>).  Database structures can be
+compared whether they are files containing table definitions or
+existing databases, local or remote.
+
+<p> <strong>N.B.</strong> The program makes <em>no</em> attempt to
+compare any of the data which may be stored in the databases.  It is
+purely for comparing the table definitions.  I have no plans to
+implement data comparison; it is a complex problem and I have no need
+of such functionality anyway.  However there is another program
+<a href="http://rossbeyer.net/software/mysql_coldiff/">coldiff</a>
+which does this, and is based on an older program called <code>datadiff</code> which seems to have vanished off the 'net.
+
+<p> For PostgreSQL there are similar tools such as <a
+href="http://pgdiff.sourceforge.net/">pgdiff</a> and <a href="http://apgdiff.startnet.biz/">apgdiff</a>.
+
+<h2><a name="download">Where can I download it?</a></h2>
+
+<p> Here is <a href="latest.tar.gz">the latest version of
+mysqldiff</a> (<a href="latest/Changes">what's new?</a>); however it
+is strongly recommended that you install <a href="http://search.cpan.org/dist/MySQL-Diff">from CPAN</a> via <a
+href="http://www.cpan.org/modules/INSTALL.html">normal CPAN
+installation mechanisms</a>.
+
+There is also a <a href="https://github.com/aspiers/mysqldiff">git repository</a>.
+
+<h2><a name="usage">How do I use it?</a></h2>
+
+<p>Please see <a href="http://search.cpan.org/dist/MySQL-Diff/bin/mysqldiff">the mysqldiff manual page</a>.
+
+<h2><a name="how">How does it work?</a></h2>
+
+<p>Please see <a href="http://search.cpan.org/dist/MySQL-Diff/bin/mysqldiff#INTERNALS">the INTERNALS section in the mysqldiff manual page</a>.
+
+<h2><a name="dev">Support, development, bugs, contributing etc.</a></h2>
+
+<p> Please see the <a href="https://github.com/aspiers/mysqldiff/wiki">development wiki</a>.
+
+<hr size=5>
+
+
+<a href="http://www.anybrowser.org/campaign/">
+  <img src="/imgs/anybrowser.gif"
+       alt="Browser independent HTML!"
+       align=right
+       border=0
+  ></a>
+<a href="http://jigsaw.w3.org/css-validator">
+  <img src="/imgs/vcss.gif" 
+       alt="Valid CSS!"
+       align=right
+       border=0
+       width=88
+       height=31
+  ></a>             
+<a href="http://validator.w3.org/">
+  <img src="/imgs/vh40.gif"
+       alt="Valid HTML 4.0!"
+       align=right
+       border=0
+       width=88
+       height=31
+  ></a>
+
+<div class="navbar">
+Adam's: [
+  <a href="../my-software.html">software</a> |
+  <a href="../../computing/">computing page</a> |
+  <a href="../../">home page</a> |
+  <a href="http://blog.adamspiers.org/">blog</a>
+ ]
+</div>
+
+<p>Last updated: 2011-10-06 Thu 17:01:25 BST
+
+<script language="JavaScript" type="text/plain">
+// <!-- 
+document.write('(<a href="http://validator.w3.org/check?uri='
+               + document.URL
+               + '">validate' + "<\/a>)");
+// -->
+</script>
+
+<br>
+
+<a href="http://www.opencontent.org/opl.shtml">&copy;</a> 1995
+<a href="../../">Adam Spiers</a> &lt;<a href="mailto:mysqldiff@adamspiers.org">mysqldiff@adamspiers.org</a>&gt;
+
+</body>
+</html>
+
