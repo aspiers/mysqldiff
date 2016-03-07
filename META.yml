@@ -6,7 +6,7 @@ build_requires: {}
 configure_requires:
   Module::Build: 0
 dynamic_config: 1
-generated_by: 'Module::Build version 0.38, CPAN::Meta::Converter version 2.112621'
+generated_by: 'Module::Build version 0.4205, CPAN::Meta::Converter version 2.120630'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
@@ -15,16 +15,16 @@ name: MySQL-Diff
 provides:
   MySQL::Diff:
     file: lib/MySQL/Diff.pm
-    version: 0.44
+    version: 0.45
   MySQL::Diff::Database:
     file: lib/MySQL/Diff/Database.pm
-    version: 0.44
+    version: 0.45
   MySQL::Diff::Table:
     file: lib/MySQL/Diff/Table.pm
-    version: 0.44
+    version: 0.45
   MySQL::Diff::Utils:
     file: lib/MySQL/Diff/Utils.pm
-    version: 0.44
+    version: 0.45
 requires:
   Carp: 0
   File::Slurp: 0
@@ -35,4 +35,4 @@ resources:
   homepage: http://adamspiers.org/computing/mysqldiff/
   license: http://dev.perl.org/licenses/
   repository: http://github.com/aspiers/mysqldiff
-version: 0.44
+version: 0.45

@@ -4,7 +4,7 @@
       "Adam Spiers <mysqldiff@adamspiers.org>"
    ],
    "dynamic_config" : 1,
-   "generated_by" : "Module::Build version 0.38, CPAN::Meta::Converter version 2.112621",
+   "generated_by" : "Module::Build version 0.4205",
    "license" : [
       "perl_5"
    ],
@@ -16,14 +16,14 @@
    "prereqs" : {
       "configure" : {
          "requires" : {
-            "Module::Build" : 0
+            "Module::Build" : "0"
          }
       },
       "runtime" : {
          "requires" : {
-            "Carp" : 0,
-            "File::Slurp" : 0,
-            "IO::File" : 0,
+            "Carp" : "0",
+            "File::Slurp" : "0",
+            "IO::File" : "0",
             "perl" : "5.006"
          }
       }
@@ -31,19 +31,19 @@
    "provides" : {
       "MySQL::Diff" : {
          "file" : "lib/MySQL/Diff.pm",
-         "version" : "0.44"
+         "version" : "0.45"
       },
       "MySQL::Diff::Database" : {
          "file" : "lib/MySQL/Diff/Database.pm",
-         "version" : "0.44"
+         "version" : "0.45"
       },
       "MySQL::Diff::Table" : {
          "file" : "lib/MySQL/Diff/Table.pm",
-         "version" : "0.44"
+         "version" : "0.45"
       },
       "MySQL::Diff::Utils" : {
          "file" : "lib/MySQL/Diff/Utils.pm",
-         "version" : "0.44"
+         "version" : "0.45"
       }
    },
    "release_status" : "stable",
@@ -52,12 +52,10 @@
          "web" : "http://rt.cpan.org/Public/Dist/Display.html?Name=MySQL-Diff"
       },
       "homepage" : "http://adamspiers.org/computing/mysqldiff/",
-      "license" : [
-         "http://dev.perl.org/licenses/"
-      ],
+      "license" : "http://dev.perl.org/licenses/",
       "repository" : {
          "url" : "http://github.com/aspiers/mysqldiff"
       }
    },
-   "version" : "0.44"
+   "version" : "0.45"
 }

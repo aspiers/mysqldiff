@@ -1,5 +1,9 @@
 # Changes log for Test::CPAN::Meta
 
+0.45    6th March 2016
+        - Added check to ensure that mysqldump failures are not
+        silently ignored.
+
 0.44    22th April 2014
         - optimized the --table-re option to exclude
           tables before comparing them as this would
