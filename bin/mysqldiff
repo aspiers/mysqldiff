@@ -59,9 +59,95 @@ L<apgdiff|http://apgdiff.startnet.biz/>.
 
 =head1 OPTIONS
 
-=for comment FIXME - add option docs here
+=over 4
 
-More details to come; for now run C<mysqldiff --help>.
+=item C<-?,  --help>
+
+show usage
+
+=item C<-A,  --apply>
+
+interactively patch database1 to match database2
+
+=item C<-B,  --batch-apply>
+
+non-interactively patch database1 to match database2
+
+=item C<-d,  --debug[=N]>
+
+enable debugging [level N, default 1]
+
+=item C<-l,  --list-tables>
+
+output the list off all used tables
+
+=item C<-o,  --only-both>
+
+only output changes for tables in both databases
+
+=item C<-k,  --keep-old-tables>
+
+don't output DROP TABLE commands
+
+=item C<-n,  --no-old-defs>
+
+suppress comments describing old definitions
+
+=item C<-t,  --table-re=REGEXP>
+
+restrict comparisons to tables matching REGEXP
+
+=item C<-i,  --tolerant>
+
+ignore DEFAULT, AUTO_INCREMENT, COLLATE, and formatting changes
+
+=item C<-h,  --host=[hostname]>
+
+connect to host
+
+=item C<-P,  --port=[port]>
+
+use this port for connection
+
+=item C<-u,  --user=[user]>
+
+user for login if not current user
+
+=item C<-p,  --password[=password]>
+
+password to use when connecting to server
+
+=item C<-s,  --socket=...>
+
+socket to use when connecting to server
+
+=back
+
+=head2 For <databaseN> only, where N == 1 or 2
+
+=over 4
+
+=item C<--hostN=[hostN]>
+
+connect to host
+
+=item C<--portN=[portN]>
+
+use this port for connection
+
+=item C<--userN=[userN]>
+
+user for login if not current user
+
+=item C<--passwordN[=passwordN]>
+
+password to use when connecting to server
+
+=item C<--socketN=[socketN]
+
+socket to use when connecting to server
+
+=back
 
 =head1 INTERNALS
 
@@ -211,7 +297,7 @@ See L<http://adamspiers.org/computing/mysqldiff/>.
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2000-2011 Adam Spiers. All rights reserved. This
+Copyright (c) 2000-2016 Adam Spiers. All rights reserved. This
 program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
 
