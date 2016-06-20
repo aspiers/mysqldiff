@@ -20,3 +20,6 @@ Debian_CPANTS.txt
 debug.log
 TAGS
 t/logs/
+
+*.old
+*.swp
