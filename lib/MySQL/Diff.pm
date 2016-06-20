@@ -512,7 +512,7 @@ __END__
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2000-2011 Adam Spiers. All rights reserved. This
+Copyright (c) 2000-2016 Adam Spiers. All rights reserved. This
 program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
 
