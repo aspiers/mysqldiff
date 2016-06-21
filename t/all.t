@@ -16,7 +16,7 @@ CREATE TABLE foo (
   id INT(11) NOT NULL auto_increment,
   foreign_id INT(11) NOT NULL, 
   PRIMARY KEY (id)
-);
+) DEFAULT CHARACTER SET utf8;
 ',
 
   foo2 => '
@@ -27,7 +27,7 @@ CREATE TABLE foo (
   foreign_id INT(11) NOT NULL, # another random comment
   field BLOB,
   PRIMARY KEY (id)
-);
+) DEFAULT CHARACTER SET utf8;
 ',
 
   foo3 => '
@@ -36,7 +36,7 @@ CREATE TABLE foo (
   foreign_id INT(11) NOT NULL, 
   field TINYBLOB,
   PRIMARY KEY (id)
-);
+) DEFAULT CHARACTER SET utf8;
 ',
 
   foo4 => '
@@ -45,7 +45,7 @@ CREATE TABLE foo (
   foreign_id INT(11) NOT NULL, 
   field TINYBLOB,
   PRIMARY KEY (id, foreign_id)
-);
+) DEFAULT CHARACTER SET utf8;
 ',
 
   bar1 => '
@@ -55,7 +55,7 @@ CREATE TABLE bar (
   utime  DATETIME,
   name   CHAR(16), 
   age    INT
-);
+) DEFAULT CHARACTER SET utf8;
 ',
 
   bar2 => '
@@ -66,7 +66,7 @@ CREATE TABLE bar (
   name   CHAR(16), 
   age    INT,
   UNIQUE (name, age)
-);
+) DEFAULT CHARACTER SET utf8;
 ',
 
   bar3 => '
@@ -77,14 +77,14 @@ CREATE TABLE bar (
   name   CHAR(16), 
   age    INT,
   UNIQUE (id, name, age)
-);
+) DEFAULT CHARACTER SET utf8;
 ',
 
   baz1 => '
 CREATE TABLE baz (
   firstname CHAR(16),
   surname   CHAR(16)
-);
+) DEFAULT CHARACTER SET utf8;
 ',
 
   baz2 => '
@@ -92,7 +92,7 @@ CREATE TABLE baz (
   firstname CHAR(16),
   surname   CHAR(16),
   UNIQUE (firstname, surname)
-);
+) DEFAULT CHARACTER SET utf8;
 ',
 
   baz3 => '
@@ -100,7 +100,7 @@ CREATE TABLE baz (
   firstname CHAR(16),
   surname   CHAR(16),
   KEY (firstname, surname)
-);
+) DEFAULT CHARACTER SET utf8;
 ',
 );
 

@@ -32,7 +32,7 @@ Parses a table definition into component parts.
 use warnings;
 use strict;
 
-our $VERSION = '0.45';
+our $VERSION = '0.46';
 
 # ------------------------------------------------------------------------------
 # Libraries

@@ -46,6 +46,17 @@ All new features should include new tests to exercise them thoroughly.
 
 If fixing a bug, please add a regression test.
 
+# Using Dist::Zilla
+
+This module uses Dist::Zilla to manage releases. Please see ./dist.ini;
+
+To roll a build;
+
+1. Bump version number in dist.ini
+2. Bump $VERSION in all .pm files
+3. Run "dzil clean && dzil test && dzil build"
+4. To push a release to CPAN, "dzil release" (but please ask a committer first. 
+
 # Questions
 
 When in doubt, issue a pull request. Feel free to email B. Estrade <estrabd@gmail.com>.
