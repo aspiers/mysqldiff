@@ -1,6 +1,7 @@
 # Changes log for Test::CPAN::Meta
 
-0.44    22th April 2014
+0.46    21th June 2016
+        - Bug fixes
         - optimized the --table-re option to exclude
           tables before comparing them as this would
           cause significant slowdowns in databases
