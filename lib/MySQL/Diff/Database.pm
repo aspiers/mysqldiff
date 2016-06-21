@@ -25,8 +25,9 @@ Parses a database definition into component parts.
 
 use warnings;
 use strict;
+use String::ShellQuote qw(shell_quote);
 
-our $VERSION = '0.46';
+our $VERSION = '0.47';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -63,7 +64,8 @@ sub new {
 
     debug(3,"\nconstructing new MySQL::Diff::Database");
 
-    my $string = _auth_args_string(%{$p{auth}});
+    my $auth_ref = _auth_args_string(%{$p{auth}});
+    my $string = shell_quote @$auth_ref;
     debug(3,"auth args: $string");
     $self->{_source}{auth} = $string;
     $self->{_source}{dbh} = $p{dbh} if $p{dbh};
@@ -173,13 +175,15 @@ Note that is used as a function call, not a method call.
 
 sub available_dbs {
     my %auth = @_;
-    my $args = _auth_args_string(%auth);
+    my $args_ref = _auth_args_string(%auth);
+    unshift @$args_ref, q{mysqlshow}; 
   
     # evil but we don't use DBI because I don't want to implement -p properly
     # not that this works with -p anyway ...
-    my $fh = IO::File->new("mysqlshow$args |") or die "Couldn't execute 'mysqlshow$args': $!\n";
+    my $command = shell_quote @$args_ref;
+    my $fh = IO::File->new("$command |") or die "Couldn't execute '$command': $!\n";
     my $dbs_ref = _parse_mysqlshow_from_fh_into_arrayref($fh);
-    $fh->close() or die "mysqlshow$args failed: $!";
+    $fh->close() or die "$command failed: $!";
 
     return map { $_ => 1 } @{$dbs_ref};
 }
@@ -192,7 +196,6 @@ sub available_dbs {
 # Private Methods
 
 sub auth_args {
-  my $self = shift;
   return _auth_args_string();
 }
 
@@ -254,10 +257,10 @@ sub _get_tables_in_db {
 
     # evil but we don't use DBI because I don't want to implement -p properly
     # not that this works with -p anyway ...
-    my $fh = IO::File->new("mysqlshow$args $db|")
-      or die "Couldn't execute 'mysqlshow$args $db': $!\n";
+    my $fh = IO::File->new("mysqlshow $args $db|")
+      or die "Couldn't execute 'mysqlshow $args $db': $!\n";
     my $tables_ref = _parse_mysqlshow_from_fh_into_arrayref($fh);
-    $fh->close() or die "mysqlshow$args $db failed: $!";
+    $fh->close() or die "mysqlshow $args $db failed: $!";
 
     return $tables_ref;
 }
@@ -333,9 +336,9 @@ sub _parse_defs {
 
 sub _auth_args_string {
     my %auth = @_;
-    my $args = '';
+    my $args = [];
     for my $arg (qw/host port user password socket/) {
-        $args .= " --$arg=$auth{$arg}" if $auth{$arg};
+        push @$args, qq/--$arg=$auth{$arg}/ if $auth{$arg};
     }
     return $args;
 }
