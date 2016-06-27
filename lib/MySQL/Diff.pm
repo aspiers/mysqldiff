@@ -253,7 +253,15 @@ sub _diff_fields {
         for my $field (keys %$fields2) {
             unless($fields1 && $fields1->{$field}) {
                 debug(3,"field '$field' added");
-                push @changes, "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field};\n";
+                my $changes = "ALTER TABLE $name1 ADD COLUMN $field $fields2->{$field}";
+                if ($table2->is_auto_inc($field)) {
+                    if ($table2->isa_primary($field)) {
+                        $changes .= ' PRIMARY KEY';
+                    } elsif ($table2->is_unique($field)) {
+                        $changes .= ' UNIQUE KEY';
+                    }
+                }
+                push @changes, "$changes;\n";
             }
         }
     }
@@ -309,7 +317,12 @@ sub _diff_indices {
 
     if($indices2) {
         for my $index (keys %$indices2) {
-            next    if($indices1 && $indices1->{$index});
+            next if($indices1 && $indices1->{$index});
+            next if(
+                !$table2->isa_primary($index) &&
+                $table2->is_unique($index) &&
+                _key_covers_auto_col($table2, $index)
+            );
             debug(3,"index '$index' added");
             my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 'INDEX';
             push @changes, "ALTER TABLE $name1 ADD $new_type $index ($indices2->{$index});\n";
@@ -341,6 +354,7 @@ sub _diff_primary_key {
 
     if (! $primary1 && $primary2) {
         debug(3,"primary key '$primary2' added");
+        return () if _key_covers_auto_col($table2, $primary2);
         return ("ALTER TABLE $name1 ADD PRIMARY KEY $primary2;\n");
     }
 
@@ -414,8 +428,7 @@ sub _diff_foreign_key {
 sub _check_for_auto_col {
     my ($table, $fields, $primary) = @_;
 
-    $fields =~ s/^\s*\((.*)\)\s*$/$1/g; # strip brackets if any
-    my @fields = split /\s*,\s*/, $fields;
+    my @fields = _fields_from_key($fields);
 
     for my $field (@fields) {
         next if($table->field($field) !~ /auto_increment/i);
@@ -425,6 +438,21 @@ sub _check_for_auto_col {
         return $field;
     }
 
+    return;
+}
+
+sub _fields_from_key {
+    my $key = shift;
+    $key =~ s/^\s*\((.*)\)\s*$/$1/g; # strip brackets if any
+    split /\s*,\s*/, $key;
+}
+
+sub _key_covers_auto_col {
+    my ($table, $key) = @_;
+    my @fields = _fields_from_key($key);
+    for my $field (@fields) {
+        return 1 if $table->is_auto_inc($field);
+    }
     return;
 }
 

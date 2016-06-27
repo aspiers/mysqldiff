@@ -126,6 +126,10 @@ Returns 1 if given field is used as unique index field, otherwise returns 0.
 
 Returns 1 if given field is used as fulltext index field, otherwise returns 0.
 
+=item * is_auto_inc
+
+Returns 1 if given field is defined as an auto increment field, otherwise returns 0.
+
 =back
 
 =cut
@@ -144,6 +148,7 @@ sub isa_primary     { my $self = shift; return $_[0] && $self->{primary}{$_[0]} 
 sub isa_index       { my $self = shift; return $_[0] && $self->{indices}{$_[0]}  ? 1 : 0; }
 sub is_unique       { my $self = shift; return $_[0] && $self->{unique}{$_[0]}   ? 1 : 0; }
 sub is_fulltext     { my $self = shift; return $_[0] && $self->{fulltext}{$_[0]} ? 1 : 0; }
+sub is_auto_inc     { my $self = shift; return $_[0] && $self->{auto_inc}{$_[0]} ? 1 : 0; }
 
 # ------------------------------------------------------------------------------
 # Private Methods
@@ -223,6 +228,9 @@ sub _parse {
                 if $self->{fields}{$field};
             $self->{fields}{$field} = $fdef;
             debug(4,"got field def '$field': $fdef");
+            next unless $fdef =~ /\s+AUTO_INCREMENT\b/;
+            $self->{auto_inc}{$field} = 1;
+            debug(4,"got AUTO_INCREMENT field '$field'");
             next;
         }
 

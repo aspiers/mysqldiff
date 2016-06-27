@@ -102,6 +102,29 @@ CREATE TABLE baz (
   KEY (firstname, surname)
 ) DEFAULT CHARACTER SET utf8;
 ',
+
+  qux1 => '
+CREATE TABLE qux (
+  age INT
+) DEFAULT CHARACTER SET utf8;
+',
+
+  qux2 => '
+CREATE TABLE qux (
+  id  INT NOT NULL AUTO_INCREMENT,
+  age INT,
+  PRIMARY KEY (id)
+) DEFAULT CHARACTER SET utf8;
+',
+
+  qux3 => '
+CREATE TABLE qux (
+  id  INT NOT NULL AUTO_INCREMENT,
+  age INT,
+  UNIQUE KEY (id)
+) DEFAULT CHARACTER SET utf8;
+',
+
 );
 
 my %tests = (
@@ -424,6 +447,38 @@ ALTER TABLE baz ADD INDEX firstname (firstname,surname);
 
 ALTER TABLE baz DROP INDEX firstname; # was INDEX (firstname,surname)
 ALTER TABLE baz ADD UNIQUE firstname (firstname,surname);
+',
+  ],
+
+  'add auto increment primary key' =>
+  [
+    {},
+    $tables{qux1},
+    $tables{qux2},
+    '## mysqldiff <VERSION>
+##
+## Run on <DATE>
+##
+## --- file: tmp.db1
+## +++ file: tmp.db2
+
+ALTER TABLE qux ADD COLUMN id int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY;
+',
+  ],
+
+  'add auto increment unique key' =>
+  [
+    {},
+    $tables{qux1},
+    $tables{qux3},
+    '## mysqldiff <VERSION>
+##
+## Run on <DATE>
+##
+## --- file: tmp.db1
+## +++ file: tmp.db2
+
+ALTER TABLE qux ADD COLUMN id int(11) NOT NULL AUTO_INCREMENT UNIQUE KEY;
 ',
   ],
 );
