@@ -1,5 +1,9 @@
 # Changes log for Test::CPAN::Meta
 
+0.48    27 June 2016
+        - added support for AUTO_INCREMENT fields (mikeraynham)
+        - fixed Build.PL conflict making smoker tests fail
+
 0.46    21th June 2016
         - Bug fixes
         - optimized the --table-re option to exclude

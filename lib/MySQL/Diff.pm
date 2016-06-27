@@ -23,7 +23,7 @@ the second.
 use warnings;
 use strict;
 
-our $VERSION = '0.47';
+our $VERSION = '0.48';
 
 # ------------------------------------------------------------------------------
 # Libraries
