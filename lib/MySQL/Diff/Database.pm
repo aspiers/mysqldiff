@@ -109,7 +109,7 @@ Provides a summary of the database.
 
 sub summary {
     my $self = shift;
-  
+
     if ($self->{_source}{file}) {
         return "file: " . $self->{_source}{file};
     } elsif ($self->{_source}{db}) {
@@ -177,8 +177,8 @@ Note that is used as a function call, not a method call.
 sub available_dbs {
     my %auth = @_;
     my $args_ref = _auth_args_string(%auth);
-    unshift @$args_ref, q{mysqlshow}; 
-  
+    unshift @$args_ref, q{mysqlshow};
+
     # evil but we don't use DBI because I don't want to implement -p properly
     # not that this works with -p anyway ...
     my $command = shell_quote @$args_ref;
@@ -211,11 +211,11 @@ sub _canonicalise_file {
     # hopefully the temp db is unique!
     my $temp_db = sprintf "test_mysqldiff-temp-%d_%d_%d", time(), $$, rand();
     debug(3,"creating temporary database $temp_db");
-  
+
     my $defs = read_file($file);
     die "$file contains dangerous command '$1'; aborting.\n"
         if $defs =~ /;\s*(use|((drop|create)\s+database))\b/i;
-  
+
     my $args = $self->{_source}{auth};
     my $fh = IO::File->new("| mysql $args") or die "Couldn't execute 'mysql$args': $!\n";
     print $fh "\nCREATE DATABASE \`$temp_db\`;\nUSE \`$temp_db\`;\n";
