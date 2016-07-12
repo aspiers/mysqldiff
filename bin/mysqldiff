@@ -101,6 +101,11 @@ restrict comparisons to tables matching REGEXP
 
 ignore DEFAULT, AUTO_INCREMENT, COLLATE, and formatting changes
 
+=item C<-S,  --single-transaction>
+
+perform DB dump in transaction
+For more info see: http://dev.mysql.com/doc/refman/en/mysqldump.html#option_mysqldump_single-transaction
+
 =item C<-h,  --host=[hostname]>
 
 connect to host
@@ -202,7 +207,7 @@ GetOptions(\%opts, "help|?", "debug|d:i", "apply|A", "batch-apply|B",
            "host|h=s", "port|P=s", "socket|s=s", "user|u=s", "password|p:s",
            "host1=s",  "port1=s",  "socket1=s",  "user1=s",  "password1:s",
            "host2=s",  "port2=s",  "socket2=s",  "user2=s",  "password2:s",
-           "tolerant|i", "list-tables|l"
+           "tolerant|i", "single-transaction|S" "list-tables|l"
           ) or usage();
 
 usage() if (@ARGV != 2 or $opts{help});
@@ -231,29 +236,30 @@ sub usage {
 Usage: $Script [ options ] <database1> <database2>
 
 Options:
-  -?,  --help             show this help
-  -A,  --apply            interactively patch database1 to match database2
-  -B,  --batch-apply      non-interactively patch database1 to match database2
-  -d,  --debug[=N]        enable debugging [level N, default 1]
-  -l,  --list-tables      output the list off all used tables
-  -o,  --only-both        only output changes for tables in both databases
-  -k,  --keep-old-tables  don't output DROP TABLE commands
-  -n,  --no-old-defs      suppress comments describing old definitions
-  -t,  --table-re=REGEXP  restrict comparisons to tables matching REGEXP
-  -i,  --tolerant         ignore DEFAULT, AUTO_INCREMENT, COLLATE, and formatting changes
+  -?,  --help                show this help
+  -A,  --apply               interactively patch database1 to match database2
+  -B,  --batch-apply         non-interactively patch database1 to match database2
+  -d,  --debug[=N]           enable debugging [level N, default 1]
+  -l,  --list-tables         output the list off all used tables
+  -o,  --only-both           only output changes for tables in both databases
+  -k,  --keep-old-tables     don't output DROP TABLE commands
+  -n,  --no-old-defs         suppress comments describing old definitions
+  -t,  --table-re=REGEXP     restrict comparisons to tables matching REGEXP
+  -i,  --tolerant            ignore DEFAULT, AUTO_INCREMENT, COLLATE, and formatting changes
+  -S,  --single-transaction  perform DB dump in transaction
 
-  -h,  --host=...         connect to host
-  -P,  --port=...         use this port for connection
-  -u,  --user=...         user for login if not current user
-  -p,  --password[=...]   password to use when connecting to server
-  -s,  --socket=...       socket to use when connecting to server
+  -h,  --host=...            connect to host
+  -P,  --port=...            use this port for connection
+  -u,  --user=...            user for login if not current user
+  -p,  --password[=...]      password to use when connecting to server
+  -s,  --socket=...          socket to use when connecting to server
 
 for <databaseN> only, where N == 1 or 2,
-       --hostN=...        connect to host
-       --portN=...        use this port for connection
-       --userN=...        user for login if not current user
-       --passwordN[=...]  password to use when connecting to server
-       --socketN=...      socket to use when connecting to server
+       --hostN=...           connect to host
+       --portN=...           use this port for connection
+       --userN=...           user for login if not current user
+       --passwordN[=...]     password to use when connecting to server
+       --socketN=...         socket to use when connecting to server
 
 Databases can be either files or database names.
 If there is an ambiguity, the file will be preferred;

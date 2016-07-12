@@ -179,7 +179,7 @@ sub _diff_banner {
     my $now = scalar localtime();
     return <<EOF;
 ## mysqldiff $VERSION
-## 
+##
 ## Run on $now
 $opt_text##
 ## --- $summary1
@@ -190,12 +190,12 @@ EOF
 
 sub _diff_tables {
     my $self = shift;
-    my @changes = ( 
+    my @changes = (
         $self->_diff_fields(@_),
         $self->_diff_indices(@_),
         $self->_diff_primary_key(@_),
         $self->_diff_foreign_key(@_),
-        $self->_diff_options(@_)        
+        $self->_diff_options(@_)
     );
 
     $changes[-1] =~ s/\n*$/\n/  if (@changes);
@@ -213,7 +213,7 @@ sub _diff_fields {
     return () unless $fields1 || $fields2;
 
     my @changes;
-  
+
     if($fields1) {
         for my $field (keys %$fields1) {
             debug(3,"table1 had field '$field'");
@@ -226,7 +226,7 @@ sub _diff_fields {
                     }
                 }
                 if ($f1 ne $f2) {
-                    if (not $self->{opts}{tolerant} or 
+                    if (not $self->{opts}{tolerant} or
                         (($f1 !~ m/$f2\(\d+,\d+\)/) and
                          ($f1 ne "$f2 DEFAULT '' NOT NULL") and
                          ($f1 ne "$f2 NOT NULL") ))
@@ -284,7 +284,7 @@ sub _diff_indices {
     if($indices1) {
         for my $index (keys %$indices1) {
             debug(3,"table1 had index '$index'");
-            my $old_type = $table1->is_unique($index) ? 'UNIQUE' : 
+            my $old_type = $table1->is_unique($index) ? 'UNIQUE' :
                            $table1->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
 
             if ($indices2 && $indices2->{$index}) {
@@ -293,7 +293,7 @@ sub _diff_indices {
                     ($table1->is_fulltext($index) xor $table2->is_fulltext($index)) )
                 {
                     debug(3,"index '$index' changed");
-                    my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 
+                    my $new_type = $table2->is_unique($index) ? 'UNIQUE' :
                                    $table2->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
 
                     my $changes = "ALTER TABLE $name1 DROP INDEX $index;";
@@ -343,7 +343,7 @@ sub _diff_primary_key {
     return () unless $primary1 || $primary2;
 
     my @changes;
-  
+
     if ($primary1 && ! $primary2) {
         debug(3,"primary key '$primary1' dropped");
         my $changes = _index_auto_col($table2, $primary1);
@@ -383,13 +383,13 @@ sub _diff_foreign_key {
     return () unless $fks1 || $fks2;
 
     my @changes;
-  
+
     if($fks1) {
         for my $fk (keys %$fks1) {
             debug(1,"$name1 has fk '$fk'");
 
             if ($fks2 && $fks2->{$fk}) {
-                if($fks1->{$fk} ne $fks2->{$fk}) 
+                if($fks1->{$fk} ne $fks2->{$fk})
                 {
                     debug(1,"foreign key '$fk' changed");
                     my $changes = "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
@@ -502,7 +502,7 @@ sub _load_database {
     }
 
     if ($arg =~ /^db:(.*)/) {
-        return MySQL::Diff::Database->new(db => $1, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
+        return MySQL::Diff::Database->new(db => $1, auth => \%auth, 'start-transaction' => $self->{opts}{'start-transaction'}, 'table-re' => $self->{opts}{'table-re'});
     }
 
     if ($self->{opts}{"dbh"}              ||
@@ -511,18 +511,18 @@ sub _load_database {
         $self->{opts}{"user$authnum"}     ||
         $self->{opts}{"password$authnum"} ||
         $self->{opts}{"socket$authnum"}) {
-        return MySQL::Diff::Database->new(db => $arg, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
+        return MySQL::Diff::Database->new(db => $arg, auth => \%auth, 'start-transaction' => $self->{opts}{'start-transaction'}, 'table-re' => $self->{opts}{'table-re'});
     }
 
     if (-f $arg) {
-        return MySQL::Diff::Database->new(file => $arg, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
+        return MySQL::Diff::Database->new(file => $arg, auth => \%auth, 'start-transaction' => $self->{opts}{'start-transaction'}, 'table-re' => $self->{opts}{'table-re'});
     }
 
     my %dbs = MySQL::Diff::Database::available_dbs(%auth);
     debug(2, "  available databases: ", (join ', ', keys %dbs), "\n");
 
     if ($dbs{$arg}) {
-        return MySQL::Diff::Database->new(db => $arg, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
+        return MySQL::Diff::Database->new(db => $arg, auth => \%auth, 'start-transaction' => $self->{opts}{'start-transaction'}, 'table-re' => $self->{opts}{'table-re'});
     }
 
     warn "'$arg' is not a valid file or database.\n";
