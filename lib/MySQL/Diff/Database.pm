@@ -69,6 +69,7 @@ sub new {
     debug(3,"auth args: $string");
     $self->{_source}{auth} = $string;
     $self->{_source}{dbh} = $p{dbh} if $p{dbh};
+    $self->{'start-transaction'} = $p{'start-transaction'};
     $self->{'table-re'} = $p{'table-re'};
 
     if ($p{file}) {
@@ -282,6 +283,7 @@ sub _get_defs {
     my ( $self, $db ) = @_;
 
     my $args   = $self->{_source}{auth};
+    my $start_transaction = $self->{'start-transaction'} ? "--start-transaction" : "";
     my $tables = '';                       #dump all tables by default
     if ( my $table_re = $self->{'table-re'} ) {
         $tables = $self->_get_tables_to_dump($db);
@@ -291,10 +293,10 @@ sub _get_defs {
         }
     }
 
-    my $fh = IO::File->new("mysqldump -d $args $db $tables 2>&1 |")
+    my $fh = IO::File->new("mysqldump -d $start_transaction $args $db $tables 2>&1 |")
       or die "Couldn't read ${db}'s table defs via mysqldump: $!\n";
 
-    debug( 3, "running mysqldump -d $args $db $tables" );
+    debug( 3, "running mysqldump -d $start_transaction $args $db $tables" );
     my $defs = $self->{_defs} = [<$fh>];
     $fh->close;
     my $exit_status = $? >> 8;
