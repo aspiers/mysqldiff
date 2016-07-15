@@ -1,5 +1,8 @@
 # Changes log for Test::CPAN::Meta
 
+0.49    15 July 2016
+        - added "--single-transaction" option for passing to mysqldump (SilentScope)
+
 0.48    27 June 2016
         - added support for AUTO_INCREMENT fields (mikeraynham)
         - fixed Build.PL conflict making smoker tests fail
