@@ -23,7 +23,7 @@ the second.
 use warnings;
 use strict;
 
-our $VERSION = '0.48';
+our $VERSION = '0.49';
 
 # ------------------------------------------------------------------------------
 # Libraries
@@ -502,7 +502,7 @@ sub _load_database {
     }
 
     if ($arg =~ /^db:(.*)/) {
-        return MySQL::Diff::Database->new(db => $1, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
+        return MySQL::Diff::Database->new(db => $1, auth => \%auth, 'start-transaction' => $self->{opts}{'start-transaction'}, 'table-re' => $self->{opts}{'table-re'});
     }
 
     if ($self->{opts}{"dbh"}              ||
@@ -511,18 +511,18 @@ sub _load_database {
         $self->{opts}{"user$authnum"}     ||
         $self->{opts}{"password$authnum"} ||
         $self->{opts}{"socket$authnum"}) {
-        return MySQL::Diff::Database->new(db => $arg, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
+        return MySQL::Diff::Database->new(db => $arg, auth => \%auth, 'start-transaction' => $self->{opts}{'start-transaction'}, 'table-re' => $self->{opts}{'table-re'});
     }
 
     if (-f $arg) {
-        return MySQL::Diff::Database->new(file => $arg, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
+        return MySQL::Diff::Database->new(file => $arg, auth => \%auth, 'start-transaction' => $self->{opts}{'start-transaction'}, 'table-re' => $self->{opts}{'table-re'});
     }
 
     my %dbs = MySQL::Diff::Database::available_dbs(%auth);
     debug(2, "  available databases: ", (join ', ', keys %dbs), "\n");
 
     if ($dbs{$arg}) {
-        return MySQL::Diff::Database->new(db => $arg, auth => \%auth, 'table-re' => $self->{opts}{'table-re'});
+        return MySQL::Diff::Database->new(db => $arg, auth => \%auth, 'start-transaction' => $self->{opts}{'start-transaction'}, 'table-re' => $self->{opts}{'table-re'});
     }
 
     warn "'$arg' is not a valid file or database.\n";
