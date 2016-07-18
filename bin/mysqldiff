@@ -207,7 +207,7 @@ GetOptions(\%opts, "help|?", "debug|d:i", "apply|A", "batch-apply|B",
            "host|h=s", "port|P=s", "socket|s=s", "user|u=s", "password|p:s",
            "host1=s",  "port1=s",  "socket1=s",  "user1=s",  "password1:s",
            "host2=s",  "port2=s",  "socket2=s",  "user2=s",  "password2:s",
-           "tolerant|i", "single-transaction|S" "list-tables|l"
+           "tolerant|i", "single-transaction|S", "list-tables|l"
           ) or usage();
 
 usage() if (@ARGV != 2 or $opts{help});
