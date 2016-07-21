@@ -3,6 +3,12 @@
 - https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/
 - http://blog.adamspiers.org/2012/11/10/7-principles-for-contributing-patches-to-software-projects/
 
+# NOTE: All changes must add/update tests (NO EXCEPTIONS)
+
+All new features should include new unit or integration tests to exercise them thoroughly.
+
+If fixing a bug, please add a regression test.
+
 # How to contribute
 
 Contributing is easy.
@@ -39,12 +45,6 @@ For example,
     for the key constraint mechanism.  Added a few unit tests
     to ensure the inversion of time remained consistent in
     all past and future versions of this utility.
-
-# Please add/update tests
-
-All new features should include new tests to exercise them thoroughly.
-
-If fixing a bug, please add a regression test.
 
 # Using Dist::Zilla
 
