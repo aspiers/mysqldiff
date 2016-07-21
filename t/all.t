@@ -280,6 +280,25 @@ ALTER TABLE baz ADD UNIQUE firstname (firstname,surname);
 ',
   ],
 
+  'single-transaction' =>
+  [
+    { 'single-transaction' => 'ba' },
+    $tables{foo1} . $tables{bar1} . $tables{baz1},
+    $tables{foo2} . $tables{bar2} . $tables{baz2},
+    '## mysqldiff <VERSION>
+##
+## Run on <DATE>
+## Options: single-transaction=ba
+##
+## --- file: tmp.db1
+## +++ file: tmp.db2
+
+ALTER TABLE bar ADD UNIQUE name (name,age);
+ALTER TABLE baz ADD UNIQUE firstname (firstname,surname);
+ALTER TABLE foo ADD COLUMN field blob;
+',
+  ],
+
   'drop primary key with auto weirdness' =>
   [
     {},
@@ -507,8 +526,8 @@ my @tests = (keys %tests); #keys %tests
       my $diff = MySQL::Diff->new(%$opts, %debug);
       isa_ok($diff,'MySQL::Diff');
 
-      my $db1 = get_db($db1_defs, 1, $opts->{'table-re'});
-      my $db2 = get_db($db2_defs, 2, $opts->{'table-re'});
+      my $db1 = get_db($db1_defs, 1, $opts->{'table-re'}, $opts->{'single_transaction'});
+      my $db2 = get_db($db2_defs, 2, $opts->{'table-re'}, $opts->{'single_transaction'});
 
       my $d1 = $diff->register_db($db1, 1);
       my $d2 = $diff->register_db($db2, 2);
@@ -542,7 +561,7 @@ my @tests = (keys %tests); #keys %tests
       is_deeply($diffs, $expected, ".. expected differences for $test");
 
       # Now test that $diffs correctly patches $db1_defs to $db2_defs.
-      my $patched = get_db($db1_defs . "\n" . $diffs, 1, $opts->{'table-re'});
+      my $patched = get_db($db1_defs . "\n" . $diffs, 1, $opts->{'table-re'}, $opts->{'single-transaction'});
       $diff->register_db($patched, 1);
       is_deeply($diff->diff(), '', ".. patched differences for $test");
     }
@@ -550,7 +569,7 @@ my @tests = (keys %tests); #keys %tests
 
 
 sub get_db {
-    my ($defs, $num, $table_re) = @_;
+    my ($defs, $num, $table_re, $single_transaction) = @_;
 
     note("defs=$defs");
 
@@ -558,7 +577,7 @@ sub get_db {
     open(TMP, ">$file") or die "open: $!";
     print TMP $defs;
     close(TMP);
-    my $db = MySQL::Diff::Database->new(file => $file, auth => { user => $TEST_USER }, 'table-re' => $table_re);
+    my $db = MySQL::Diff::Database->new(file => $file, auth => { user => $TEST_USER }, 'table-re' => $table_re, 'single-transaction' => $single_transaction);
     unlink $file;
     return $db;
 }
