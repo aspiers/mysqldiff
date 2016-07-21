@@ -17,7 +17,7 @@ Currently contains the debug message handling routines.
 use warnings;
 use strict;
 
-our $VERSION = '0.49';
+our $VERSION = '0.50';
 
 # ------------------------------------------------------------------------------
 # Libraries

@@ -27,7 +27,7 @@ use warnings;
 use strict;
 use String::ShellQuote qw(shell_quote);
 
-our $VERSION = '0.49';
+our $VERSION = '0.50';
 
 # ------------------------------------------------------------------------------
 # Libraries
