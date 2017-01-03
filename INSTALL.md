@@ -30,37 +30,33 @@ command:
 "Manual" installation
 =========================================================================
 
-First ensure you have File::Slurp installed.
+First ensure you have `File::Slurp` installed. Install also
+`Dist::Zilla` via
 
-Then there are two options:
+	cpanm install Dist::Zilla
+	
+Install dependencies with
 
-1) Install via Module::Build (recommended)
---------------------------------------------
+	dzil authordeps --missing | cpanm
+	
+And then
 
-Ensure that Module::Build is installed, e.g.
+	dzil listdeps --missing | cpanm
+	
+Build and test
 
-	$ perl -MCPAN -e 'install Module::Build'
+	dzil build 
+	dzil test
+	
+Please bear in mind that this module needs a working Mysql
+installation; those tests needing it will be skipped if it is not
+present. 
 
-or
+And if everything is OK, 
 
-	$ perl -MCPANPLUS -e 'install Module::Build'
+	dzil install
 
-Then run these commands:
 
-	perl Build.PL
-	perl Build
-	perl Build test
-	perl Build install
-
-2) Install via ExtUtils::MakeMaker (deprecated but simpler)
--------------------------------------------------------------
-
-You can install MySQL::Diff in the traditional way by running these commands:
-
-	perl Makefile.PL
-	make
-	make test
-	make install
 
 And finally ...
 =========================================================================
