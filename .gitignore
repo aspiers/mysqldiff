@@ -23,3 +23,5 @@ t/logs/
 
 *.old
 *.swp
+
+.build
