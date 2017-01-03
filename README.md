@@ -24,7 +24,7 @@ and from the Comprehensive Perl Archive Network (CPAN).  Visit
 Installation
 ------------
 
-See the [`INSTALL`](INSTALL) file.
+See the [`INSTALL.md`](INSTALL.md) file.
 
 Documentation
 -------------
