@@ -262,6 +262,23 @@ ALTER TABLE foo ADD COLUMN field blob;
 ',
   ],
 
+  'keep-old-columns' =>
+  [
+    { 'keep-old-columns' => 1 },
+    $tables{foo2} . $tables{bar1}, $tables{foo1},
+    '## mysqldiff <VERSION>
+##
+## Run on <DATE>
+## Options: keep-old-columns
+##
+## --- file: tmp.db1
+## +++ file: tmp.db2
+
+DROP TABLE bar;
+
+',
+  ],
+
   'table-re' =>
   [
     { 'table-re' => 'ba' },

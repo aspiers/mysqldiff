@@ -1,4 +1,7 @@
 # Changes log for Test::CPAN::Meta
+Unreleased
+        - added "--keep-old-columns" option that disables emitting DROP COLUMN
+          commands
 
 0.50    21 July 2016
         - fix bug with 0.49's new feature (SilentScope)

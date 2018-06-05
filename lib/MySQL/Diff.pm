@@ -239,7 +239,7 @@ sub _diff_fields {
                         push @changes, $change;
                     }
                 }
-            } else {
+            } elsif (!$self->{opts}{'keep-old-columns'}) {
                 debug(3,"field '$field' removed");
                 my $change = "ALTER TABLE $name1 DROP COLUMN $field;";
                 $change .= " # was $fields1->{$field}" unless $self->{opts}{'no-old-defs'};

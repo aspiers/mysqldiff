@@ -89,6 +89,10 @@ only output changes for tables in both databases
 
 don't output DROP TABLE commands
 
+=item C<-c,  --keep-old-columns>
+
+don't output DROP COLUMN commands
+
 =item C<-n,  --no-old-defs>
 
 suppress comments describing old definitions
@@ -203,7 +207,8 @@ use MySQL::Diff;
 
 my %opts = ();
 GetOptions(\%opts, "help|?", "debug|d:i", "apply|A", "batch-apply|B",
-           "keep-old-tables|k", "no-old-defs|n", "only-both|o", "table-re|t=s",
+           "keep-old-tables|k", "keep-old-columns|c", "no-old-defs|n",
+           "only-both|o", "table-re|t=s",
            "host|h=s", "port|P=s", "socket|s=s", "user|u=s", "password|p:s",
            "host1=s",  "port1=s",  "socket1=s",  "user1=s",  "password1:s",
            "host2=s",  "port2=s",  "socket2=s",  "user2=s",  "password2:s",
@@ -243,6 +248,7 @@ Options:
   -l,  --list-tables         output the list off all used tables
   -o,  --only-both           only output changes for tables in both databases
   -k,  --keep-old-tables     don't output DROP TABLE commands
+  -c,  --keep-old-columns    don't output DROP COLUMN commands
   -n,  --no-old-defs         suppress comments describing old definitions
   -t,  --table-re=REGEXP     restrict comparisons to tables matching REGEXP
   -i,  --tolerant            ignore DEFAULT, AUTO_INCREMENT, COLLATE, and formatting changes
