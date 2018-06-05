@@ -1,4 +1,6 @@
-First please consult the README to check that you have a new enough
+#Installation instructions
+
+First please consult the [README](README.md) to check that you have a new enough
 version of Perl.
 
 (N.B. the rest of this document looks a great deal more complicated
@@ -13,52 +15,48 @@ Module::Build instead of ExtUtils::MakeMaker.)
 Installation from either of the recommended installers can be performed at the
 command line, with either of the two following commands:
 
-  $ perl -MCPANPLUS -e 'install MySQL::Diff'
+	$ perl -MCPANPLUS -e 'install MySQL::Diff'
 
-  $ perl -MCPAN -e 'install MySQL::Diff'
+	$ perl -MCPAN -e 'install MySQL::Diff'
 
 Although CPAN.pm is the default installer for many, with the release of Perl
 5.10, CPANPLUS.pm is now also available in core. However, if you use an earlier
 version of Perl, you can install CPANPLUS from the CPAN with the following
 command:
 
-  $ perl -MCPAN -e 'install CPANPLUS'
+	$ perl -MCPAN -e 'install CPANPLUS'
 
 
 "Manual" installation
 =========================================================================
 
-First ensure you have File::Slurp installed.
+First ensure you have `File::Slurp` installed. Install also
+`Dist::Zilla` via
 
-Then there are two options:
+	cpanm install Dist::Zilla
+	
+Install dependencies with
 
-1) Install via Module::Build (recommended)
---------------------------------------------
+	dzil authordeps --missing | cpanm
+	
+And then
 
-Ensure that Module::Build is installed, e.g.
+	dzil listdeps --missing | cpanm
+	
+Build and test
 
-  $ perl -MCPAN -e 'install Module::Build'
+	dzil build 
+	dzil test
+	
+Please bear in mind that this module needs a working Mysql
+installation; those tests needing it will be skipped if it is not
+present. 
 
-or
+And if everything is OK, 
 
-  $ perl -MCPANPLUS -e 'install Module::Build'
+	dzil install
 
-Then run these commands:
 
-   perl Build.PL
-   perl Build
-   perl Build test
-   perl Build install
-
-2) Install via ExtUtils::MakeMaker (deprecated but simpler)
--------------------------------------------------------------
-
-You can install MySQL::Diff in the traditional way by running these commands:
-
-   perl Makefile.PL
-   make
-   make test
-   make install
 
 And finally ...
 =========================================================================

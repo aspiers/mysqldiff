@@ -7,8 +7,10 @@ MySQL-Diff is a suite of Perl modules and accompanying CLI script
 Prerequisites
 -------------
 
-This suite requires Perl 5.006 or higher and a MySQL compatible suite
-of client utilities (mysql and mysqldump).
+This suite requires Perl 5.14 or higher and a MySQL compatible suite
+of client utilities (mysql and mysqldump). You need at least Perl 5.14
+to be able to install the current version of `Dist::Zilla`; however,
+the module proper will probably make do with a lesser version.
 
 Availability
 ------------
@@ -24,7 +26,7 @@ and from the Comprehensive Perl Archive Network (CPAN).  Visit
 Installation
 ------------
 
-See the [`INSTALL`](INSTALL) file.
+See the [`INSTALL.md`](INSTALL.md) file.
 
 Documentation
 -------------
