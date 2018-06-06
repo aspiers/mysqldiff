@@ -281,8 +281,9 @@ sub apply {
     return;
   }
 
-  my $db0 = $md->db1->name;
-  if ($md->db1->source_type ne 'db') {
+  my $db1 = $md->db1;
+  my $db0 = $db1->name;
+  if ($db1->source_type ne 'db') {
     die "$db0 is not a database; cannot apply changes.\n";
   }
 
@@ -295,7 +296,7 @@ sub apply {
   }
 
   print "Applying changes ... ";
-  my $args_ref = $md->db1->auth_args;
+  my $args_ref = $db1->auth_args;
   unshift @$args_ref, q{mysql};
   push @$args_ref, $db0;
   my $pipe = shell_quote @$args_ref;
