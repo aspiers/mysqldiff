@@ -113,6 +113,7 @@ the schema of the first database into that of the second.
 sub diff {
     my $self = shift;
     my @changes;
+    my @fk_changes;
     my %used_tables = ();
 
     debug(1, "\ncomparing databases");
@@ -139,6 +140,8 @@ sub diff {
         if (! $self->db1->table_by_name($name)) {
             debug(3,"table '$name' added");
             debug(4,"table '$name' added '".$table2->def()."'");
+            push @fk_changes, $self->_add_fk($table2)
+                unless $self->{opts}{'only-both'};
             push @changes, $table2->def() . "\n"
                 unless $self->{opts}{'only-both'};
         }
@@ -148,15 +151,19 @@ sub diff {
 
     my $out = '';
     if (@changes) {
-        if (!$self->{opts}{'list-tables'}) {
-            $out .= $self->_diff_banner();
-        }
-        else {
-            $out .= "-- TABLES LIST \n";
-            $out .= join "\n", keys %used_tables;
-            $out .= "\n-- END OF TABLES LIST \n";
-        }
+        #if (!$self->{opts}{'list-tables'}) {
+        #    $out .= $self->_diff_banner();
+        #}
+        #else {
+        #    $out .= "-- TABLES LIST \n";
+        #    $out .= join "\n", keys %used_tables;
+        #    $out .= "\n-- END OF TABLES LIST \n";
+        #}
         $out .= join '', @changes;
+    }
+    
+    if (@fk_changes) {
+        $out .= join '', @fk_changes;
     }
     return $out;
 }
@@ -200,6 +207,16 @@ sub _diff_tables {
 
     $changes[-1] =~ s/\n*$/\n/  if (@changes);
     return @changes;
+}
+
+sub _add_fk {
+    my $self = shift;
+    my @fk_changes = ( 
+        $self->_add_foreign_key(@_)     
+    );
+
+    $fk_changes[-1] =~ s/\n*$/\n/  if (@fk_changes);
+    return @fk_changes;
 }
 
 sub _diff_fields {
@@ -418,6 +435,27 @@ sub _diff_foreign_key {
     }
 
     return @changes;
+}
+
+sub _add_foreign_key {
+    my ($self, $table2) = @_;
+
+    my $name2 = $table2->name();
+
+    my $fks2 = $table2->foreign_key();
+
+    return () unless $fks2;
+
+    my @fk_changes;
+  
+   if($fks2) {
+        for my $fk (keys %$fks2) {
+            debug(1, "foreign key '$fk' added");
+            push @fk_changes, "ALTER TABLE $name2 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
+        }
+    }
+
+    return @fk_changes;
 }
 
 # If we're about to drop a composite (multi-column) index, we need to
