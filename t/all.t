@@ -125,6 +125,19 @@ CREATE TABLE qux (
 ) DEFAULT CHARACTER SET utf8;
 ',
 
+  zap1 => '
+CREATE TABLE zap (
+  polygons multipolygon NOT NULL
+) DEFAULT CHARACTER SET utf8;
+',
+
+  zap2 => '
+CREATE TABLE zap (
+  polygons multipolygon NOT NULL,
+  SPATIAL INDEX idx_polygons (polygons)
+) DEFAULT CHARACTER SET utf8;
+',
+
 );
 
 my %tests = (
@@ -515,6 +528,38 @@ ALTER TABLE qux ADD COLUMN id int(11) NOT NULL AUTO_INCREMENT PRIMARY KEY;
 ## +++ file: tmp.db2
 
 ALTER TABLE qux ADD COLUMN id int(11) NOT NULL AUTO_INCREMENT UNIQUE KEY;
+',
+  ],
+
+  'add spatial index' =>
+  [
+    {},
+    $tables{zap1},
+    $tables{zap2},
+    '## mysqldiff <VERSION>
+##
+## Run on <DATE>
+##
+## --- file: tmp.db1
+## +++ file: tmp.db2
+
+ALTER TABLE zap ADD SPATIAL INDEX idx_polygons (polygons);
+',
+  ],
+
+  'remove spatial index' =>
+  [
+    {},
+    $tables{zap2},
+    $tables{zap1},
+    '## mysqldiff <VERSION>
+##
+## Run on <DATE>
+##
+## --- file: tmp.db1
+## +++ file: tmp.db2
+
+ALTER TABLE zap DROP INDEX idx_polygons; # was SPATIAL INDEX (polygons)
 ',
   ],
 );

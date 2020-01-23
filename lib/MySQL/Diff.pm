@@ -259,6 +259,8 @@ sub _diff_fields {
                         $changes .= ' PRIMARY KEY';
                     } elsif ($table2->is_unique($field)) {
                         $changes .= ' UNIQUE KEY';
+                    } elsif ($table2->is_spatial($field)) {
+                        $changes .= ' SPATIAL KEY';
                     }
                 }
                 push @changes, "$changes;\n";
@@ -285,15 +287,18 @@ sub _diff_indices {
         for my $index (keys %$indices1) {
             debug(3,"table1 had index '$index'");
             my $old_type = $table1->is_unique($index) ? 'UNIQUE' : 
+                           $table1->is_spatial($index) ? 'SPATIAL INDEX' :
                            $table1->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
 
             if ($indices2 && $indices2->{$index}) {
                 if( ($indices1->{$index} ne $indices2->{$index}) or
                     ($table1->is_unique($index) xor $table2->is_unique($index)) or
+                    ($table1->is_spatial($index) xor $table2->is_spatial($index)) or
                     ($table1->is_fulltext($index) xor $table2->is_fulltext($index)) )
                 {
                     debug(3,"index '$index' changed");
                     my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 
+                                   $table2->is_spatial($index) ? 'SPATIAL INDEX' :
                                    $table2->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
 
                     my $changes = "ALTER TABLE $name1 DROP INDEX $index;";
@@ -324,7 +329,8 @@ sub _diff_indices {
                 _key_covers_auto_col($table2, $index)
             );
             debug(3,"index '$index' added");
-            my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 'INDEX';
+            my $new_type = $table2->is_unique($index) ? 'UNIQUE' :
+                           $table2->is_spatial($index) ? 'SPATIAL INDEX' : 'INDEX';
             push @changes, "ALTER TABLE $name1 ADD $new_type $index ($indices2->{$index});\n";
         }
     }

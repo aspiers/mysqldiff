@@ -21,6 +21,7 @@ MySQL::Diff::Table - Table Definition Class
   my $isprimary     = $db->isa_primary($field);
   my $isindex       = $db->isa_index($field);
   my $isunique      = $db->is_unique($field);
+  my $isspatial     = $db->is_spatial($field);
   my $isfulltext    = $db->is_fulltext($field);
 
 =head1 DESCRIPTION
@@ -122,6 +123,10 @@ Returns 1 if given field is used as an index field, otherwise returns 0.
 
 Returns 1 if given field is used as unique index field, otherwise returns 0.
 
+=item * is_spatial
+
+Returns 1 if given field is used as spatial index field, otherwise returns 0.
+
 =item * is_fulltext
 
 Returns 1 if given field is used as fulltext index field, otherwise returns 0.
@@ -147,6 +152,7 @@ sub isa_field       { my $self = shift; return $_[0] && $self->{fields}{$_[0]}  
 sub isa_primary     { my $self = shift; return $_[0] && $self->{primary}{$_[0]}  ? 1 : 0; }
 sub isa_index       { my $self = shift; return $_[0] && $self->{indices}{$_[0]}  ? 1 : 0; }
 sub is_unique       { my $self = shift; return $_[0] && $self->{unique}{$_[0]}   ? 1 : 0; }
+sub is_spatial      { my $self = shift; return $_[0] && $self->{spatial}{$_[0]}  ? 1 : 0; }
 sub is_fulltext     { my $self = shift; return $_[0] && $self->{fulltext}{$_[0]} ? 1 : 0; }
 sub is_auto_inc     { my $self = shift; return $_[0] && $self->{auto_inc}{$_[0]} ? 1 : 0; }
 
@@ -203,6 +209,17 @@ sub _parse {
             $self->{indices}{$key} = $val;
             $self->{unique}{$key} = 1   if($type =~ /unique/i);
             debug(4, "got ", defined $self->{unique}{$key} ? 'unique ' : '', "index key '$key': ($val)");
+            next;
+        }
+
+        if (/^(SPATIAL(?:\s+KEY|INDEX)?)\s+(\S+?)\s*\((.*)\)$/) {
+            my ($type, $key, $val) = ($1, $2, $3);
+            debug(4, "type: $type  key: $key val: $val");
+            croak "SPATIAL index '$key' duplicated in table '$self->{name}'\n"
+                if $self->{fulltext}{$key};
+            $self->{indices}{$key} = $val;
+           $self->{spatial}{$key} = 1;
+            debug(4,"got SPATIAL index '$key': ($val)");
             next;
         }
 
