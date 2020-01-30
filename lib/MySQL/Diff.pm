@@ -260,8 +260,6 @@ sub _diff_fields {
                         $changes .= ' PRIMARY KEY';
                     } elsif ($table2->is_unique($field)) {
                         $changes .= ' UNIQUE KEY';
-                    } elsif ($table2->is_spatial($field)) {
-                        $changes .= ' SPATIAL KEY';
                     }
                 }
                 push @changes, "$changes;\n";
