@@ -193,6 +193,7 @@ sub _diff_tables {
     my @changes = ( 
         $self->_diff_fields(@_),
         $self->_diff_indices(@_),
+        $self->_diff_partitions(@_),
         $self->_diff_primary_key(@_),
         $self->_diff_foreign_key(@_),
         $self->_diff_options(@_)        
@@ -332,6 +333,54 @@ sub _diff_indices {
             my $new_type = $table2->is_unique($index) ? 'UNIQUE' :
                            $table2->is_spatial($index) ? 'SPATIAL INDEX' : 'INDEX';
             push @changes, "ALTER TABLE $name1 ADD $new_type $index ($indices2->{$index});\n";
+        }
+    }
+    return @changes;
+}
+
+sub _diff_partitions {
+    my ($self, $table1, $table2) = @_;
+
+    my $name1 = $table1->name();
+
+    my $partitions1 = $table1->partitions();
+    my $partitions2 = $table2->partitions();
+
+    return () unless $partitions1 || $partitions2;
+
+    my @changes;
+
+    if($partitions1) {
+      for my $partition (keys %$partitions1) {
+        debug(3,"table1 had partition '$partition'");
+        if ($partitions2 && $partitions2->{$partition}){
+           if( ($partitions1->{$partition}{val} ne $partitions2->{$partition}{val}) or
+               ($partitions1->{$partition}{op} ne $partitions2->{$partition}{op})){
+                debug(3,"partition '$partition' for values '$partitions1->{$partition}{op}' THAN '$partitions1->{$partition}{val}' changed");
+                my $changes = "ALTER TABLE $name1 DROP PARTITION $partition;";
+                $changes .= " # was VALUES '$partitions1->{$partition}{op}' THAN '$partitions1->{$partition}{val}'"
+                    unless $self->{opts}{'no-old-defs'};
+                $changes .= "\nALTER TABLE $name1 ADD PARTITION (PARTITION $partition VALUES $partitions2->{$partition}{op} THAN ($partitions2->{$partition}{val}));\n";
+                push @changes, $changes;
+            }
+        } else {
+            # ALTER TABLE t1 DROP PARTITION p0, p1;
+            debug(3,"partition '$partition' for values '$partitions1->{$partition}{op}' THAN '$partitions1->{$partition}{val}' removed");
+            my $changes = "ALTER TABLE $name1 DROP PARTITION $partition;";
+            $changes .= " # was VALUES '$partitions1->{$partition}{op}' THAN '$partitions1->{$partition}{val}'"
+                unless $self->{opts}{'no-old-defs'};
+            $changes .= "\n";
+            push @changes, $changes;
+        }
+      }
+    }
+
+    # ALTER TABLE t1 ADD PARTITION (PARTITION p3 VALUES LESS THAN (2002));
+    if($partitions2) {
+        for my $partition (keys %$partitions2) {
+          next if($partitions1 && $partitions1->{$partition});
+          debug(3,"partition '$partition' for values '$partitions2->{$partition}{op}' THAN '$partitions2->{$partition}{val}' added");
+          push @changes, "ALTER TABLE $name1 ADD PARTITION (PARTITION $partition VALUES $partitions2->{$partition}{op} THAN ($partitions2->{$partition}{val}));\n";
         }
     }
 

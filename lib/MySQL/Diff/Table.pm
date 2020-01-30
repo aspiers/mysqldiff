@@ -15,6 +15,7 @@ MySQL::Diff::Table - Table Definition Class
   my $fields        = $db->fields();                # %$fields
   my $primary_key   = $db->primary_key();
   my $indices       = $db->indices();               # %$indices
+  my $partitions    = $db->partitions();            # %$partitions
   my $options       = $db->options();
 
   my $isfield       = $db->isa_field($field);
@@ -23,6 +24,7 @@ MySQL::Diff::Table - Table Definition Class
   my $isunique      = $db->is_unique($field);
   my $isspatial     = $db->is_spatial($field);
   my $isfulltext    = $db->is_fulltext($field);
+  my $ipatitioned   = $db->is_paritioned($field);
 
 =head1 DESCRIPTION
 
@@ -102,6 +104,10 @@ Returns a hash reference to fields used as primary key fields.
 
 Returns a hash reference to fields used as index fields.
 
+=item * partitions
+
+Returns a hash reference to fields used as partitions.
+
 =item * options
 
 Returns the additional options added to the table definition.
@@ -135,6 +141,10 @@ Returns 1 if given field is used as fulltext index field, otherwise returns 0.
 
 Returns 1 if given field is defined as an auto increment field, otherwise returns 0.
 
+=item * is_paritioned
+
+Returns if given fiel is a praritioned field
+
 =back
 
 =cut
@@ -145,6 +155,7 @@ sub field           { my $self = shift; return $self->{fields}{$_[0]};  }
 sub fields          { my $self = shift; return $self->{fields};         }
 sub primary_key     { my $self = shift; return $self->{primary_key};    }
 sub indices         { my $self = shift; return $self->{indices};        }
+sub partitions      { my $self = shift; return $self->{partitions};     }
 sub options         { my $self = shift; return $self->{options};        }
 sub foreign_key     { my $self = shift; return $self->{foreign_key};    }
 
@@ -156,6 +167,7 @@ sub is_spatial      { my $self = shift; return $_[0] && $self->{spatial}{$_[0]} 
 sub is_fulltext     { my $self = shift; return $_[0] && $self->{fulltext}{$_[0]} ? 1 : 0; }
 sub is_auto_inc     { my $self = shift; return $_[0] && $self->{auto_inc}{$_[0]} ? 1 : 0; }
 
+sub is_partitioned  { my $self = shift; return $_[0] && $self->{partitions}{$_[0]}  ? 1 : 0; }
 # ------------------------------------------------------------------------------
 # Private Methods
 
@@ -218,7 +230,7 @@ sub _parse {
             croak "SPATIAL index '$key' duplicated in table '$self->{name}'\n"
                 if $self->{fulltext}{$key};
             $self->{indices}{$key} = $val;
-           $self->{spatial}{$key} = 1;
+            $self->{spatial}{$key} = 1;
             debug(4,"got SPATIAL index '$key': ($val)");
             next;
         }
@@ -233,10 +245,40 @@ sub _parse {
             next;
         }
 
-        if (/^\)\s*(.*?);$/) { # end of table definition
+        if (/^\)\s*(.*?)(;?)$/) { # end of table definition
             $self->{options} = $1;
-            debug(4,"got table options '$self->{options}'");
-            last;
+            if ($2){ # there is a ; at the end 
+              debug(4,"got table options '$self->{options}'");
+              last;
+            }
+            debug(4,"got table options '$self->{options}' but no end ';'");
+            next;
+        }
+
+        if ($self->{options}) {
+          # option is set, but wait, there is more to this schema... e.g. a patition?
+          #
+          # got field def '/*!50100': PARTITION BY RANGE (HOUR(timestamp)) '
+          if(/^\/\*\!\d{5}\sPARTITION\sBY\s(\S+?)\s\((.+)\)/){
+            my ($func, $opt) = ($1, $2);
+            debug(4," got partition function:'$func' with op: '$opt'");
+            $self->{partition}{function} = $func;
+            $self->{partition}{option} = $opt;
+            next;
+          }
+          if($self->{partition}{function} eq "RANGE"){
+            if(/^\(?PARTITION (\S+?) VALUES (\S+?) THAN \(*(.*?)\)?\sENGINE = InnoDB(.*)/){
+              my ($name, $op, $val, $term) = ($1, $2, $3, $4);
+              debug(4," got extended partition table options name:'$name' op: '$op' val: '$val' ");
+              $self->{partitions}{$name}{val} = $val;
+              $self->{partitions}{$name}{op} = $op;
+              if ($term =~ m/;/) {
+                  debug(4," got last section - ending");
+                  last;
+              }
+              next;
+            }
+          } # we can add other functions here such as hash... etc.
         }
 
         if (/^(\S+)\s*(.*)/) {
