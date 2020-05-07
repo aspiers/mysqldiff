@@ -354,18 +354,18 @@ sub _diff_partitions {
         if ($partitions2 && $partitions2->{$partition}){
            if( ($partitions1->{$partition}{val} ne $partitions2->{$partition}{val}) or
                ($partitions1->{$partition}{op} ne $partitions2->{$partition}{op})){
-                debug(3,"partition '$partition' for values '$partitions1->{$partition}{op}' THAN '$partitions1->{$partition}{val}' changed");
+                debug(3,"partition '$partition' for values '$partitions1->{$partition}{op}' '$partitions1->{$partition}{val}' changed");
                 my $changes = "ALTER TABLE $name1 DROP PARTITION $partition;";
-                $changes .= " # was VALUES '$partitions1->{$partition}{op}' THAN '$partitions1->{$partition}{val}'"
+                $changes .= " # was VALUES '$partitions1->{$partition}{op}' '$partitions1->{$partition}{val}'"
                     unless $self->{opts}{'no-old-defs'};
-                $changes .= "\nALTER TABLE $name1 ADD PARTITION (PARTITION $partition VALUES $partitions2->{$partition}{op} THAN ($partitions2->{$partition}{val}));\n";
+                $changes .= "\nALTER TABLE $name1 ADD PARTITION (PARTITION $partition VALUES $partitions2->{$partition}{op} ($partitions2->{$partition}{val}));\n";
                 push @changes, $changes;
             }
         } else {
             # ALTER TABLE t1 DROP PARTITION p0, p1;
-            debug(3,"partition '$partition' for values '$partitions1->{$partition}{op}' THAN '$partitions1->{$partition}{val}' removed");
+            debug(3,"partition '$partition' for values '$partitions1->{$partition}{op}' '$partitions1->{$partition}{val}' removed");
             my $changes = "ALTER TABLE $name1 DROP PARTITION $partition;";
-            $changes .= " # was VALUES '$partitions1->{$partition}{op}' THAN '$partitions1->{$partition}{val}'"
+            $changes .= " # was VALUES '$partitions1->{$partition}{op}' '$partitions1->{$partition}{val}'"
                 unless $self->{opts}{'no-old-defs'};
             $changes .= "\n";
             push @changes, $changes;
@@ -377,8 +377,8 @@ sub _diff_partitions {
     if($partitions2) {
         for my $partition (keys %$partitions2) {
           next if($partitions1 && $partitions1->{$partition});
-          debug(3,"partition '$partition' for values '$partitions2->{$partition}{op}' THAN '$partitions2->{$partition}{val}' added");
-          push @changes, "ALTER TABLE $name1 ADD PARTITION (PARTITION $partition VALUES $partitions2->{$partition}{op} THAN ($partitions2->{$partition}{val}));\n";
+          debug(3,"partition '$partition' for values '$partitions2->{$partition}{op}' '$partitions2->{$partition}{val}' added");
+          push @changes, "ALTER TABLE $name1 ADD PARTITION (PARTITION $partition VALUES $partitions2->{$partition}{op} ($partitions2->{$partition}{val}));\n";
         }
     }
 

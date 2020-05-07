@@ -211,6 +211,45 @@ CREATE TABLE pip (
     PRIMARY KEY(id,timestamp)
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
 ',
+  piq1 => '
+CREATE TABLE piq (
+    id VARCHAR(255) NOT NULL,
+    timestamp DATETIME(3) NOT NULL,
+    PRIMARY KEY(id,timestamp)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin
+  PARTITION BY LIST (DAYOFWEEK(`timestamp`)) (
+  PARTITION p1 VALUES IN (1) ENGINE = InnoDB,
+  PARTITION p2 VALUES IN (2) ENGINE = InnoDB,
+  PARTITION p3 VALUES IN (3) ENGINE = InnoDB,
+  PARTITION p4 VALUES IN (4) ENGINE = InnoDB,
+  PARTITION p5 VALUES IN (5) ENGINE = InnoDB,
+  PARTITION p6 VALUES IN (6) ENGINE = InnoDB
+);
+',
+
+  piq2 => '
+CREATE TABLE piq (
+    id VARCHAR(255) NOT NULL,
+    timestamp DATETIME(3) NOT NULL,
+    PRIMARY KEY(id,timestamp)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin
+  PARTITION BY LIST (DAYOFWEEK(`timestamp`)) (
+  PARTITION p1 VALUES IN (1) ENGINE = InnoDB,
+  PARTITION p2 VALUES IN (2) ENGINE = InnoDB,
+  PARTITION p3 VALUES IN (3) ENGINE = InnoDB,
+  PARTITION p4 VALUES IN (4) ENGINE = InnoDB,
+  PARTITION p5 VALUES IN (5) ENGINE = InnoDB,
+  PARTITION p6 VALUES IN (6) ENGINE = InnoDB,
+  PARTITION p6 VALUES IN (7) ENGINE = InnoDB
+);
+',
+  piq3 => '
+CREATE TABLE piq (
+    id VARCHAR(255) NOT NULL,
+    timestamp DATETIME(3) NOT NULL,
+    PRIMARY KEY(id,timestamp)
+) CHARACTER SET utf8mb4 COLLATE utf8mb4_bin;
+',
 
 );
 
@@ -637,7 +676,7 @@ ALTER TABLE zap DROP INDEX idx_polygons; # was SPATIAL INDEX (polygons)
 ',
   ],
 
-  'Add partition' =>
+  'Add range partition' =>
   [
     {},
     $tables{pip1},
@@ -654,7 +693,7 @@ ALTER TABLE pip ADD PARTITION (PARTITION p22 VALUES LESS THAN (23));
 ALTER TABLE pip ADD PARTITION (PARTITION p23 VALUES LESS THAN (MAXVALUE));
 ',
   ],
-  'remove partition' =>
+  'remove range partition' =>
   [
     {},
     $tables{pip2},
@@ -669,6 +708,36 @@ ALTER TABLE pip ADD PARTITION (PARTITION p23 VALUES LESS THAN (MAXVALUE));
 ALTER TABLE pip DROP PARTITION p23; # was VALUES \'LESS\' THAN \'MAXVALUE\'
 ALTER TABLE pip DROP PARTITION p22; # was VALUES \'LESS\' THAN \'23\'
 ALTER TABLE pip ADD PARTITION (PARTITION p22 VALUES LESS THAN (MAXVALUE));
+',
+  ],
+  'Add list partition' =>
+  [
+    {},
+    $tables{piq1},
+    $tables{piq2},
+    '## mysqldiff <VERSION>
+##
+## Run on <DATE>
+##
+## --- file: tmp.db1
+## +++ file: tmp.db2
+
+ALTER TABLE piq ADD PARTITION (PARTITION p7 VALUES IN (7));
+',
+  ],
+  'remove list partition' =>
+  [
+    {},
+    $tables{piq2},
+    $tables{piq1},
+    '## mysqldiff <VERSION>
+##
+## Run on <DATE>
+##
+## --- file: tmp.db1
+## +++ file: tmp.db2
+
+ALTER TABLE piq DROP PARTITION p7; # was VALUES 'IN' '7'
 ',
   ],
 );
