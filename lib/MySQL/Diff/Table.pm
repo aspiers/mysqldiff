@@ -268,7 +268,7 @@ sub _parse {
           }
           if($self->{partition}{function} eq "RANGE"){
             if(/^\(?PARTITION (\S+?) VALUES (\S+?) THAN \(*(.*?)\)?\sENGINE = InnoDB(.*)/){
-              my ($name, $op, $val, $term) = ($1, "'$2' THAN", $3, $4);
+              my ($name, $op, $val, $term) = ($1, "$2 THAN", $3, $4);
               debug(4," got extended partition table options name:'$name' op: '$op' val: '$val' ");
               $self->{partitions}{$name}{val} = $val;
               $self->{partitions}{$name}{op} = $op;
@@ -281,7 +281,7 @@ sub _parse {
           }
           if($self->{partition}{function} eq "LIST"){
             if(/^\(?PARTITION (\S+?) VALUES IN \(*(.*?)\)?\sENGINE = InnoDB(.*)/){
-              my ($name, $op, $val, $term) = ($1, "IN", $3, $4);
+              my ($name, $op, $val, $term) = ($1, "IN", $2, $3);
               debug(4," got extended partition table options name:'$name' op: '$op' val: '$val' ");
               $self->{partitions}{$name}{val} = $val;
               $self->{partitions}{$name}{op} = $op;
