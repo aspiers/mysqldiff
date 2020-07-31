@@ -190,11 +190,12 @@ EOF
 
 sub _diff_tables {
     my $self = shift;
-    my @changes = ( 
+    my @changes = (
+	$self->_diff_foreign_key_drop(@_),
         $self->_diff_fields(@_),
         $self->_diff_indices(@_),
         $self->_diff_primary_key(@_),
-        $self->_diff_foreign_key(@_),
+        $self->_diff_foreign_key_add(@_),
         $self->_diff_options(@_)        
     );
 
@@ -372,7 +373,7 @@ sub _diff_primary_key {
     return @changes;
 }
 
-sub _diff_foreign_key {
+sub _diff_foreign_key_drop {
     my ($self, $table1, $table2) = @_;
 
     my $name1 = $table1->name();
@@ -395,7 +396,6 @@ sub _diff_foreign_key {
                     my $changes = "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
                     $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
                         unless $self->{opts}{'no-old-defs'};
-                    $changes .= "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
                     push @changes, $changes;
                 }
             } else {
@@ -405,6 +405,36 @@ sub _diff_foreign_key {
                         unless $self->{opts}{'no-old-defs'};
                 $changes .= "\n";
                 push @changes, $changes;
+            }
+        }
+    }
+
+    return @changes;
+}
+
+sub _diff_foreign_key_add {
+    my ($self, $table1, $table2) = @_;
+
+    my $name1 = $table1->name();
+
+    my $fks1 = $table1->foreign_key();
+    my $fks2 = $table2->foreign_key();
+
+    return () unless $fks1 || $fks2;
+
+    my @changes;
+
+    if($fks1) {
+        for my $fk (keys %$fks1) {
+            debug(1,"$name1 has fk '$fk'");
+
+            if ($fks2 && $fks2->{$fk}) {
+                if($fks1->{$fk} ne $fks2->{$fk})
+                {
+                    debug(1,"foreign key '$fk' changed");
+                    my $changes = "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
+                    push @changes, $changes;
+                }
             }
         }
     }
