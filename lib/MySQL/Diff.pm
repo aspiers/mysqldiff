@@ -113,35 +113,43 @@ the schema of the first database into that of the second.
 sub diff {
     my $self = shift;
     my @changes;
+    my %unsorted_changes;
     my %used_tables = ();
 
     debug(1, "\ncomparing databases");
 
     for my $table1 ($self->db1->tables()) {
+        my $diffs;
         my $name = $table1->name();
         $used_tables{'-- '. $name} = 1;
         debug(4, "table 1 $name = ".Dumper($table1));
         debug(2,"looking at tables called '$name'");
         if (my $table2 = $self->db2->table_by_name($name)) {
             debug(3,"comparing tables called '$name'");
-            push @changes, $self->_diff_tables($table1, $table2);
+            $diffs = $self->_diff_tables($table1, $table2);
+            push @changes, $diffs;
         } else {
             debug(3,"table '$name' dropped");
-            push @changes, "DROP TABLE $name;\n\n"
+            $diffs="DROP TABLE $name;\n\n"
+            push @changes, $diffs
                 unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'};
         }
+        $unsorted_changes{$name}=$diffs;
     }
 
     for my $table2 ($self->db2->tables()) {
+        my $diffs;
         my $name = $table2->name();
         $used_tables{'-- '. $name} = 1;
         debug(4, "table 2 $name = ".Dumper($table2));
         if (! $self->db1->table_by_name($name)) {
             debug(3,"table '$name' added");
             debug(4,"table '$name' added '".$table2->def()."'");
-            push @changes, $table2->def() . "\n"
+            $diffs = $table2->def() . "\n";
+            push @changes, $diffs
                 unless $self->{opts}{'only-both'};
         }
+        $unsorted_changes{$name}=$diffs;
     }
 
     debug(4,join '', @changes);
