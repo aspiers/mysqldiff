@@ -113,38 +113,89 @@ the schema of the first database into that of the second.
 sub diff {
     my $self = shift;
     my @changes;
+    my %unsorted_changes;
     my %used_tables = ();
 
     debug(1, "\ncomparing databases");
 
     for my $table1 ($self->db1->tables()) {
+        my $diffs;
         my $name = $table1->name();
+	my $parents = $table1->parents();
         $used_tables{'-- '. $name} = 1;
         debug(4, "table 1 $name = ".Dumper($table1));
         debug(2,"looking at tables called '$name'");
         if (my $table2 = $self->db2->table_by_name($name)) {
             debug(3,"comparing tables called '$name'");
-            push @changes, $self->_diff_tables($table1, $table2);
+            $diffs = $self->_diff_tables($table1, $table2);
+            # push @changes, $diffs;
         } else {
             debug(3,"table '$name' dropped");
-            push @changes, "DROP TABLE $name;\n\n"
-                unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'};
+            $diffs="DROP TABLE $name;\n\n";
+            # push @changes, $diffs
+            #     unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'};
         }
+        $unsorted_changes{$name}{'diffs'}=$diffs;
+        $unsorted_changes{$name}{'parents'}=$parents;
     }
 
     for my $table2 ($self->db2->tables()) {
+        my $diffs;
         my $name = $table2->name();
+	my $parents = $table2->parents();
         $used_tables{'-- '. $name} = 1;
         debug(4, "table 2 $name = ".Dumper($table2));
         if (! $self->db1->table_by_name($name)) {
             debug(3,"table '$name' added");
             debug(4,"table '$name' added '".$table2->def()."'");
-            push @changes, $table2->def() . "\n"
-                unless $self->{opts}{'only-both'};
+            $diffs = $table2->def() . "\n";
+            # push @changes, $diffs
+            #     unless $self->{opts}{'only-both'};
         }
+        $unsorted_changes{$name}{'diffs'}=$diffs;
+        $unsorted_changes{$name}{'parents'}=$parents;
+    }
+    
+    # Sort for Parents
+    my %checked_changes;
+    debug(1,"Start sorting for parental constraints");
+    debug(1,"Lets see: ".Dumper(%unsorted_changes));
+    foreach my $t (keys %unsorted_changes) {
+        debug(1,"Checking table: ".$t);
+        push @changes, add($t);
     }
 
-    debug(4,join '', @changes);
+    sub add {
+        my $table = $_[0];
+    
+        if (exists $checked_changes{$table}) {
+            debug(1,"table ".$table." in sorted hash, skipping");
+            return;
+        }else{
+            debug(1,"table ".$table." not in sorted hash, adding");
+        }
+    
+        if (exists $unsorted_changes{$table}{'parents'}) {
+            debug(1, $table." has parents, checking");
+        }else{
+            debug(1, $table." has no parents, returning");
+            $checked_changes{$table} = "done";
+            return $unsorted_changes{$table}{'diffs'};
+        }
+    
+        my @tmparray;
+        foreach my $parent (keys %{$unsorted_changes{$table}{'parents'}}) {
+            debug(1,"Doing parent table: ".$parent." of ".$table);
+            push @tmparray, add($parent);
+        }
+        $checked_changes{$table} = "done";
+        push @tmparray, $unsorted_changes{$table}{'diffs'};
+        return @tmparray;
+    }
+    debug(1,"Finished sorting for parental constraints");
+
+
+    debug(1,join '', @changes);
 
     my $out = '';
     if (@changes) {
@@ -172,7 +223,7 @@ sub _diff_banner {
 
     my $opt_text =
         join ', ',
-            map { $self->{opts}{$_} eq '1' ? $_ : "$_=$self->{opts}{$_}" }
+            map { $self->{opts}{$_} eq '1' ? $_ : "$_=$self->{opts}{$_}"  unless $_ eq "password" }
                 keys %{$self->{opts}};
     $opt_text = "## Options: $opt_text\n" if $opt_text;
 
