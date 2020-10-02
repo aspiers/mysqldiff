@@ -15,6 +15,7 @@ MySQL::Diff::Table - Table Definition Class
   my $fields        = $db->fields();                # %$fields
   my $primary_key   = $db->primary_key();
   my $indices       = $db->indices();               # %$indices
+  my $parents       = $db->parents();               # %$parents
   my $partitions    = $db->partitions();            # %$partitions
   my $options       = $db->options();
 
@@ -104,6 +105,10 @@ Returns a hash reference to fields used as primary key fields.
 
 Returns a hash reference to fields used as index fields.
 
+=item * parents
+
+Returns a hash reference to fields used as parents.
+
 =item * partitions
 
 Returns a hash reference to fields used as partitions.
@@ -155,6 +160,7 @@ sub field           { my $self = shift; return $self->{fields}{$_[0]};  }
 sub fields          { my $self = shift; return $self->{fields};         }
 sub primary_key     { my $self = shift; return $self->{primary_key};    }
 sub indices         { my $self = shift; return $self->{indices};        }
+sub parents         { my $self = shift; return $self->{parents};        }
 sub partitions      { my $self = shift; return $self->{partitions};     }
 sub options         { my $self = shift; return $self->{options};        }
 sub foreign_key     { my $self = shift; return $self->{foreign_key};    }
@@ -207,6 +213,10 @@ sub _parse {
         
         if (/^(?:CONSTRAINT\s+(.*)?)?\s+FOREIGN\s+KEY\s+(.*)$/) {
             my ($key, $val) = ($1, $2);
+            if (/^(?:CONSTRAINT\s+(.*)?)?\s+FOREIGN\s+KEY\s+\((.+?)\)\sREFERENCES\s(.+?)\s\((.+?)\)(.*)/) {
+              my ($const_name, $const_local_column, $const_parent_table, $const_parent_column, $const_options) = ($1, $2, $3, $4, $5);
+              $self->{parents}{$const_parent_table} = $const_name;
+            }
             croak "foreign key '$key' duplicated in table '$name'\n"
                 if $self->{foreign_key}{$key};
             debug(1,"got foreign key $key");
