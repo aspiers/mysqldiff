@@ -1,0 +1,11 @@
+all: mysqldiff
+
+mysqldiff:
+	docker build -t mysqldiff .
+
+shell:
+	docker exec -it --user test mysqldiff sh -c 'cd git/mysqldiff && pwd && export PS1="mysqldiff-docker>>> " && clear && pwd && sh'
+
+test:
+	docker exec -it --user test mysqldiff sh -c "cd git/mysqldiff && PERL5LIB=./lib prove ./t"
+

@@ -1,0 +1,19 @@
+
+---
+version: '3.7'
+
+services:
+  mysqldiff:
+    image: mysqldiff 
+    container_name: mysqldiff
+    environment:
+      MYSQL_ROOT_PASSWORD: ~
+      MYSQL_DATABASE: test
+      MYSQL_USER: test 
+      MYSQL_PASSWORD: ~ 
+    expose:
+      - "3306"
+    volumes:
+      - "${PWD}:/home/test/git/mysqldiff"
+    env_file:
+      - "compose-mysqldiff-tests.env"

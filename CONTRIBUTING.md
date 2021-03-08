@@ -1,3 +1,8 @@
+# Dockerfile
+
+The Dockerfile provided is intended for development and running testings locally. See
+[`DOCKER.md`](DOCKER.md)
+
 # Good reading
 
 - https://www.igvita.com/2011/12/19/dont-push-your-pull-requests/
