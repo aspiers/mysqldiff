@@ -229,9 +229,11 @@ sub _parse {
 
         if (/^(KEY|UNIQUE(?: KEY)?)\s+(\S+?)(?:\s+USING\s+(?:BTREE|HASH|RTREE))?\s*\((.*)\)(?:\s+USING\s+(?:BTREE|HASH|RTREE))?$/) {
             my ($type, $key, $val) = ($1, $2, $3);
-            $self->{indices}{$val} = $val;
-            $self->{unique}{$val} = 1   if($type =~ /unique/i);
-            debug(4, "got ", defined $self->{unique}{$val} ? 'unique ' : '', "index key '$val': ($val)");
+            my $indexName = $val;
+            $indexName =~ tr/,/_/;
+            $self->{indices}{$indexName} = $val;
+            $self->{unique}{$indexName} = 1   if($type =~ /unique/i);
+            debug(4, "got ", defined $self->{unique}{$indexName} ? 'unique ' : '', "index key '$indexName': ($val)");
             next;
         }
 
