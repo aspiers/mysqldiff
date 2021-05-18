@@ -212,11 +212,11 @@ sub _parse {
         }
         
         if (/^(?:CONSTRAINT\s+(.*)?)?\s+FOREIGN\s+KEY\s+(.*)$/) {
+            my $val = $2;
             if (/^(?:CONSTRAINT\s+(.*)?)?\s+FOREIGN\s+KEY\s+\((.+?)\)\sREFERENCES\s(.+?)\s\((.+?)\)(.*)/) {
               my ($const_name, $const_local_column, $const_parent_table, $const_parent_column, $const_options) = ($1, $2, $3, $4, $5);
               debug(1,"new foreign key $const_local_column-$const_parent_table-$const_parent_column");
-              my $key = "${const_local_column}|${const_parent_table}|${const_parent_column}";
-              my $val = "${const_local_column}|${const_parent_table}|${const_parent_column}";
+              my $key = "$self->{name}_${const_local_column}_${const_parent_table}_${const_parent_column}";
 
               $self->{parents}{$const_parent_table} = $key; 
               croak "foreign key '$key' duplicated in table '$name'\n"
