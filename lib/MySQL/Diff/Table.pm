@@ -155,8 +155,7 @@ sub is_auto_inc     { my $self = shift; return $_[0] && $self->{auto_inc}{$_[0]}
 
 sub _parse {
     my $self = shift;
-
-    $self->{def} =~ s/`([^`]+)`/$1/gs;  # later versions quote names
+    
     $self->{def} =~ s/\n+/\n/;
     $self->{lines} = [ grep ! /^\s*$/, split /(?=^)/m, $self->{def} ];
     my @lines = @{$self->{lines}};
@@ -222,7 +221,7 @@ sub _parse {
             last;
         }
 
-        if (/^(\S+)\s*(.*)/) {
+        if (/^`(.*)`(.*)/) {
             my ($field, $fdef) = ($1, $2);
             croak "definition for field '$field' duplicated in table '$self->{name}'\n"
                 if $self->{fields}{$field};
