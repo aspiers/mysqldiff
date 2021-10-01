@@ -158,6 +158,7 @@ sub _parse {
 
     $self->{def} =~ s/`([^`]+)`/$1/gs;  # later versions quote names
     $self->{def} =~ s/\n+/\n/;
+    
     $self->{lines} = [ grep ! /^\s*$/, split /(?=^)/m, $self->{def} ];
     my @lines = @{$self->{lines}};
     debug(4,"parsing table def '$self->{def}'");
@@ -170,7 +171,7 @@ sub _parse {
     } else {
         croak "couldn't figure out table name";
     }
-
+    
     while (@lines) {
         $_ = shift @lines;
         s/^\s*(.*?),?\s*$/$1/; # trim whitespace and trailing commas
@@ -236,13 +237,29 @@ sub _parse {
 
         croak "unparsable line in definition for table '$self->{name}':\n$_";
     }
-
+    
+    $self->{lines} = [ grep !/FOREIGN KEY/, grep ! /^\s*$/, split /(?=^)/m, $self->{def} ];
+    
+    my @_lines = @{$self->{lines}};
+    
+    for my $i (0 .. @_lines) {
+     my $lchar = unpack('A1', $_lines[$i]);
+     
+     if($lchar eq ")"){
+      $_lines[$i-1] =~ s/,$//;
+     }
+    }
+    
+    $self->{lines} = [ @_lines ];
+      
     warn "table '$self->{name}' didn't have terminator\n"
         unless defined $self->{options};
 
-    @lines = grep ! m{^/\*!40\d{3} .*? \*/;}, @lines;
+    @lines = grep ! m{^/\*!40\d{3} .*? \*/;}, @lines;    
     @lines = grep ! m{^(SET |DROP TABLE)}, @lines;
-
+    
+    $self->{def} = join "", @{$self->{lines}}; 
+    
     warn "table '$self->{name}' had trailing garbage:\n", join '', @lines
         if @lines;
 }
@@ -250,8 +267,9 @@ sub _parse {
 1;
 
 __END__
-
 =head1 COPYRIGHT AND LICENSE
+
+
 
 Copyright (c) 2000-2016 Adam Spiers. All rights reserved. This
 program is free software; you can redistribute it and/or modify it
