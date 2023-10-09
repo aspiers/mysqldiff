@@ -220,7 +220,8 @@ sub _canonicalise_file {
     my $fh = IO::File->new("| mysql $args") or die "Couldn't execute 'mysql$args': $!\n";
     print $fh "\nCREATE DATABASE \`$temp_db\`;\nUSE \`$temp_db\`;\n";
     print $fh $defs;
-    $fh->close;
+    # looks like this was never caught
+    $fh->close or die "Could not apply schema from $file";
 
     # ... and then retrieve defs from mysqldump.  Hence we've used
     # MySQL to massage the defs file into canonical form.
