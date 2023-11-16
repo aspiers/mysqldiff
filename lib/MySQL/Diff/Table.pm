@@ -222,7 +222,8 @@ sub _parse {
               croak "foreign key '$key' duplicated in table '$name'\n"
                   if $self->{foreign_key}{$key};
               debug(1,"got foreign key $key");
-              $self->{foreign_key}{$key} = $val;
+              $self->{foreign_key}{$key}{value} = $val;
+              $self->{foreign_key}{$key}{name} = $const_name;
               next;
             }
         }
