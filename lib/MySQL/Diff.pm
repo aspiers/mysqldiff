@@ -498,18 +498,18 @@ sub _diff_foreign_key_drop {
             debug(1,"$name1 has fk '$fk'");
 
             if ($fks2 && $fks2->{$fk}) {
-                if($fks1->{$fk} ne $fks2->{$fk}) 
+                if($fks1->{$fk}->{'value'} ne $fks2->{$fk}->{'value'}) 
                 {
                     debug(1,"foreign key '$fk' changed");
-                    my $changes = "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
-                    $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
+                    my $changes = "ALTER TABLE $name1 DROP FOREIGN KEY $fks1->{$fk}->{'name'};";
+                    $changes .= " # was CONSTRAINT $fk $fks1->{$fk}->{'value'}"
                         unless $self->{opts}{'no-old-defs'};
                     push @changes, $changes;
                 }
             } else {
                 debug(1,"foreign key '$fk' removed");
-                my $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
-                $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
+                my $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fks1->{$fk}->{'name'};";
+                $changes .= " # was CONSTRAINT $fk $fks1->{$fk}->{'value'}"
                         unless $self->{opts}{'no-old-defs'};
                 $changes .= "\n";
                 push @changes, $changes;
@@ -537,13 +537,14 @@ sub _diff_foreign_key_add {
             debug(1,"$name1 has fk '$fk'");
 
             if ($fks2 && $fks2->{$fk}) {
-                if($fks1->{$fk} ne $fks2->{$fk})
+                if($fks1->{$fk}->{'value'} ne $fks2->{$fk}->{'value'})
                 {
                     debug(1,"foreign key '$fk' changed");
-                    my $changes = "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
+                    my $changes = "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk}->{'value'};\n";
                     push @changes, $changes;
                 }
             }
+
         }
     }
 
@@ -551,7 +552,7 @@ sub _diff_foreign_key_add {
         for my $fk (keys %$fks2) {
             next    if($fks1 && $fks1->{$fk});
             debug(1, "foreign key '$fk' added");
-            push @changes, "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
+            push @changes, "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk}->{'value'};\n";
         }
     }
 
