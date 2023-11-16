@@ -113,38 +113,93 @@ the schema of the first database into that of the second.
 sub diff {
     my $self = shift;
     my @changes;
+    my %unsorted_changes;
     my %used_tables = ();
 
     debug(1, "\ncomparing databases");
 
     for my $table1 ($self->db1->tables()) {
+        my @diffs;
         my $name = $table1->name();
+	my $parents = $table1->parents();
         $used_tables{'-- '. $name} = 1;
         debug(4, "table 1 $name = ".Dumper($table1));
         debug(2,"looking at tables called '$name'");
         if (my $table2 = $self->db2->table_by_name($name)) {
             debug(3,"comparing tables called '$name'");
-            push @changes, $self->_diff_tables($table1, $table2);
+            push @diffs, $self->_diff_tables($table1, $table2);
+            # push @changes, $diffs;
         } else {
             debug(3,"table '$name' dropped");
-            push @changes, "DROP TABLE $name;\n\n"
-                unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'};
+            push @diffs, "DROP TABLE $name;\n\n"
+                 unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'};
+            # push @changes, $diffs
+            #     unless $self->{opts}{'only-both'} || $self->{opts}{'keep-old-tables'};
         }
+        $unsorted_changes{$name}{'diffs'} = [@diffs];
+        $unsorted_changes{$name}{'parents'}=$parents;
     }
 
     for my $table2 ($self->db2->tables()) {
+        my @diffs;
         my $name = $table2->name();
+	my $parents = $table2->parents();
         $used_tables{'-- '. $name} = 1;
         debug(4, "table 2 $name = ".Dumper($table2));
         if (! $self->db1->table_by_name($name)) {
             debug(3,"table '$name' added");
             debug(4,"table '$name' added '".$table2->def()."'");
-            push @changes, $table2->def() . "\n"
-                unless $self->{opts}{'only-both'};
+            push @diffs, $table2->def() . "\n"
+                 unless $self->{opts}{'only-both'};
+            # push @changes, $diffs
+            #     unless $self->{opts}{'only-both'};
         }
+        push @{$unsorted_changes{$name}{'diffs'}},@diffs;
+        $unsorted_changes{$name}{'parents'}=$parents;
+    }
+    
+    debug(1,"Unsorted_changes: ".Dumper(%unsorted_changes));
+
+    # Sort for Parents
+    my %checked_changes;
+    debug(1,"Start sorting for parental constraints");
+    foreach my $t (keys %unsorted_changes) {
+        debug(2,"Checking table: ".$t);
+        push @changes, add($t);
     }
 
-    debug(4,join '', @changes);
+    sub add {
+        my $table = $_[0];
+    
+        if (exists $checked_changes{$table}) {
+            debug(5,"table ".$table." in sorted hash, skipping");
+            return;
+        }else{
+            debug(5,"table ".$table." not in sorted hash, adding");
+        }
+    
+        if (exists $unsorted_changes{$table}{'parents'}) {
+            debug(5, $table." has parents, checking");
+        }else{
+            debug(5, $table." has no parents, returning");
+            $checked_changes{$table} = "done";
+            return @{$unsorted_changes{$table}{'diffs'}};
+        }
+    
+        my @tmparray;
+        foreach my $parent (keys %{$unsorted_changes{$table}{'parents'}}) {
+            debug(5,"Doing parent table: ".$parent." of ".$table);
+            push @tmparray, add($parent);
+        }
+        debug(5,"Done with parents, proceeding to table: ".$table);
+        $checked_changes{$table} = "done";
+        push @tmparray, @{$unsorted_changes{$table}{'diffs'}};
+        return @tmparray;
+    }
+    debug(1,"Finished sorting for parental constraints");
+
+
+    debug(1,join '', @changes);
 
     my $out = '';
     if (@changes) {
@@ -172,7 +227,7 @@ sub _diff_banner {
 
     my $opt_text =
         join ', ',
-            map { $self->{opts}{$_} eq '1' ? $_ : "$_=$self->{opts}{$_}" }
+            map { $self->{opts}{$_} eq '1' ? $_ : "$_=$self->{opts}{$_}"  unless $_ eq "password" }
                 keys %{$self->{opts}};
     $opt_text = "## Options: $opt_text\n" if $opt_text;
 
@@ -194,6 +249,7 @@ sub _diff_tables {
 	$self->_diff_foreign_key_drop(@_),
         $self->_diff_fields(@_),
         $self->_diff_indices(@_),
+        $self->_diff_partitions(@_),
         $self->_diff_primary_key(@_),
         $self->_diff_foreign_key_add(@_),
         $self->_diff_options(@_)        
@@ -286,15 +342,18 @@ sub _diff_indices {
         for my $index (keys %$indices1) {
             debug(3,"table1 had index '$index'");
             my $old_type = $table1->is_unique($index) ? 'UNIQUE' : 
+                           $table1->is_spatial($index) ? 'SPATIAL INDEX' :
                            $table1->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
 
             if ($indices2 && $indices2->{$index}) {
                 if( ($indices1->{$index} ne $indices2->{$index}) or
                     ($table1->is_unique($index) xor $table2->is_unique($index)) or
+                    ($table1->is_spatial($index) xor $table2->is_spatial($index)) or
                     ($table1->is_fulltext($index) xor $table2->is_fulltext($index)) )
                 {
                     debug(3,"index '$index' changed");
                     my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 
+                                   $table2->is_spatial($index) ? 'SPATIAL INDEX' :
                                    $table2->is_fulltext($index) ? 'FULLTEXT INDEX' : 'INDEX';
 
                     my $changes = "ALTER TABLE $name1 DROP INDEX $index;";
@@ -325,8 +384,57 @@ sub _diff_indices {
                 _key_covers_auto_col($table2, $index)
             );
             debug(3,"index '$index' added");
-            my $new_type = $table2->is_unique($index) ? 'UNIQUE' : 'INDEX';
+            my $new_type = $table2->is_unique($index) ? 'UNIQUE' :
+                           $table2->is_spatial($index) ? 'SPATIAL INDEX' : 'INDEX';
             push @changes, "ALTER TABLE $name1 ADD $new_type $index ($indices2->{$index});\n";
+        }
+    }
+    return @changes;
+}
+
+sub _diff_partitions {
+    my ($self, $table1, $table2) = @_;
+
+    my $name1 = $table1->name();
+
+    my $partitions1 = $table1->partitions();
+    my $partitions2 = $table2->partitions();
+
+    return () unless $partitions1 || $partitions2;
+
+    my @changes;
+
+    if($partitions1) {
+      for my $partition (keys %$partitions1) {
+        debug(3,"table1 had partition '$partition'");
+        if ($partitions2 && $partitions2->{$partition}){
+           if( ($partitions1->{$partition}{val} ne $partitions2->{$partition}{val}) or
+               ($partitions1->{$partition}{op} ne $partitions2->{$partition}{op})){
+                debug(3,"partition '$partition' for values '$partitions1->{$partition}{op}' '$partitions1->{$partition}{val}' changed");
+                my $changes = "ALTER TABLE $name1 DROP PARTITION $partition;";
+                $changes .= " # was VALUES '$partitions1->{$partition}{op}' '$partitions1->{$partition}{val}'"
+                    unless $self->{opts}{'no-old-defs'};
+                $changes .= "\nALTER TABLE $name1 ADD PARTITION (PARTITION $partition VALUES $partitions2->{$partition}{op} ($partitions2->{$partition}{val}));\n";
+                push @changes, $changes;
+            }
+        } else {
+            # ALTER TABLE t1 DROP PARTITION p0, p1;
+            debug(3,"partition '$partition' for values '$partitions1->{$partition}{op}' '$partitions1->{$partition}{val}' removed");
+            my $changes = "ALTER TABLE $name1 DROP PARTITION $partition;";
+            $changes .= " # was VALUES '$partitions1->{$partition}{op}' '$partitions1->{$partition}{val}'"
+                unless $self->{opts}{'no-old-defs'};
+            $changes .= "\n";
+            push @changes, $changes;
+        }
+      }
+    }
+
+    # ALTER TABLE t1 ADD PARTITION (PARTITION p3 VALUES LESS THAN (2002));
+    if($partitions2) {
+        for my $partition (keys %$partitions2) {
+          next if($partitions1 && $partitions1->{$partition});
+          debug(3,"partition '$partition' for values '$partitions2->{$partition}{op}' '$partitions2->{$partition}{val}' added");
+          push @changes, "ALTER TABLE $name1 ADD PARTITION (PARTITION $partition VALUES $partitions2->{$partition}{op} ($partitions2->{$partition}{val}));\n";
         }
     }
 
@@ -390,18 +498,18 @@ sub _diff_foreign_key_drop {
             debug(1,"$name1 has fk '$fk'");
 
             if ($fks2 && $fks2->{$fk}) {
-                if($fks1->{$fk} ne $fks2->{$fk}) 
+                if($fks1->{$fk}->{'value'} ne $fks2->{$fk}->{'value'}) 
                 {
                     debug(1,"foreign key '$fk' changed");
-                    my $changes = "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
-                    $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
+                    my $changes = "ALTER TABLE $name1 DROP FOREIGN KEY $fks1->{$fk}->{'name'};";
+                    $changes .= " # was CONSTRAINT $fk $fks1->{$fk}->{'value'}"
                         unless $self->{opts}{'no-old-defs'};
                     push @changes, $changes;
                 }
             } else {
                 debug(1,"foreign key '$fk' removed");
-                my $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fk;";
-                $changes .= " # was CONSTRAINT $fk $fks1->{$fk}"
+                my $changes .= "ALTER TABLE $name1 DROP FOREIGN KEY $fks1->{$fk}->{'name'};";
+                $changes .= " # was CONSTRAINT $fk $fks1->{$fk}->{'value'}"
                         unless $self->{opts}{'no-old-defs'};
                 $changes .= "\n";
                 push @changes, $changes;
@@ -429,13 +537,14 @@ sub _diff_foreign_key_add {
             debug(1,"$name1 has fk '$fk'");
 
             if ($fks2 && $fks2->{$fk}) {
-                if($fks1->{$fk} ne $fks2->{$fk})
+                if($fks1->{$fk}->{'value'} ne $fks2->{$fk}->{'value'})
                 {
                     debug(1,"foreign key '$fk' changed");
-                    my $changes = "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
+                    my $changes = "\nALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk}->{'value'};\n";
                     push @changes, $changes;
                 }
             }
+
         }
     }
 
@@ -443,7 +552,7 @@ sub _diff_foreign_key_add {
         for my $fk (keys %$fks2) {
             next    if($fks1 && $fks1->{$fk});
             debug(1, "foreign key '$fk' added");
-            push @changes, "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk};\n";
+            push @changes, "ALTER TABLE $name1 ADD CONSTRAINT $fk FOREIGN KEY $fks2->{$fk}->{'value'};\n";
         }
     }
 
