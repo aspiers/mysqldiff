@@ -267,6 +267,12 @@ sub _diff_fields {
     my $fields1 = $table1->fields;
     my $fields2 = $table2->fields;
 
+    my $charset1 = $table1->charset;
+    my $charset2 = $table2->charset;
+
+    my $collate1 = $table1->collate;
+    my $collate2 = $table2->collate;
+
     return () unless $fields1 || $fields2;
 
     my @changes;
@@ -277,12 +283,15 @@ sub _diff_fields {
             my $f1 = $fields1->{$field};
             my $f2 = $fields2->{$field};
             if ($fields2 && $f2) {
-                if ($self->{opts}{tolerant}) {
-                    for ($f1, $f2) {
-                        s/ CHARACTER SET [\w_]+//gi;
-                        s/ COLLATE [\w_]+//gi;
-                    }
-                }
+                debug(10,"F1 was field '$f1'");
+                $f1 =~ s/ CHARACTER SET ${charset1}//gi;
+                $f1 =~ s/ COLLATE ${collate1}//gi;
+                debug(10,"F1 now field '$f1'");
+                debug(10,"F2 was field '$f2'");
+                $f2 =~ s/ CHARACTER SET ${charset2}//gi;
+                $f2 =~ s/ COLLATE ${collate2}//gi;
+                debug(10,"F2 now field '$f2'");
+
                 if ($f1 ne $f2) {
                     if (not $self->{opts}{tolerant} or 
                         (($f1 !~ m/$f2\(\d+,\d+\)/) and
@@ -615,6 +624,7 @@ sub _diff_options {
 
     if ($self->{opts}{tolerant}) {
       for ($options1, $options2) {
+        s/ CHARACTER SET [\w_]+//gi;
         s/ AUTO_INCREMENT=\d+//gi;
         s/ COLLATE=[\w_]+//gi;
       }

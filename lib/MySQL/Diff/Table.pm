@@ -18,6 +18,9 @@ MySQL::Diff::Table - Table Definition Class
   my $parents       = $db->parents();               # %$parents
   my $partitions    = $db->partitions();            # %$partitions
   my $options       = $db->options();
+  my $engine        = $db->engine();
+  my $charset       = $db->charset();
+  my $collate       = $db->collate();
 
   my $isfield       = $db->isa_field($field);
   my $isprimary     = $db->isa_primary($field);
@@ -117,6 +120,18 @@ Returns a hash reference to fields used as partitions.
 
 Returns the additional options added to the table definition.
 
+=item * engine
+
+Returns the additional engine table option added to the table definition.
+
+=item * character set
+
+Returns the additional character set table option added to the table definition.
+
+=item * collate
+
+Returns the additional collate table option added to the table definition.
+
 =item * isa_field
 
 Returns 1 if given field is used in the current table definition, otherwise 
@@ -164,6 +179,9 @@ sub parents         { my $self = shift; return $self->{parents};        }
 sub partitions      { my $self = shift; return $self->{partitions};     }
 sub options         { my $self = shift; return $self->{options};        }
 sub foreign_key     { my $self = shift; return $self->{foreign_key};    }
+sub engine          { my $self = shift; return $self->{engine};         }
+sub charset         { my $self = shift; return $self->{charset};        }
+sub collate         { my $self = shift; return $self->{collate};        }
 
 sub isa_field       { my $self = shift; return $_[0] && $self->{fields}{$_[0]}   ? 1 : 0; }
 sub isa_primary     { my $self = shift; return $_[0] && $self->{primary}{$_[0]}  ? 1 : 0; }
@@ -261,6 +279,14 @@ sub _parse {
 
         if (/^\)\s*(.*?)(;?)$/) { # end of table definition
             $self->{options} = $1;
+            if (/^\)\s*ENGINE=([^\s;]+)\s+DEFAULT CHARSET=([^\s;]+)\s+COLLATE=([^\s;]+);/) {
+              $self->{engine} = $1;
+              $self->{charset} = $2;
+              $self->{collate} = $3;
+              debug(4,"options contained $1 $2 $3");
+            } else {
+              debug(1,"no regexp match for option content");
+            } 
             if ($2){ # there is a ; at the end 
               debug(4,"got table options '$self->{options}'");
               last;
