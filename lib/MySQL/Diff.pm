@@ -279,6 +279,7 @@ sub _diff_fields {
             if ($fields2 && $f2) {
                 if ($self->{opts}{tolerant}) {
                     for ($f1, $f2) {
+                        s/ CHARACTER SET [\w_]+//gi;
                         s/ COLLATE [\w_]+//gi;
                     }
                 }
