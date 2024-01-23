@@ -279,7 +279,7 @@ sub _parse {
 
         if (/^\)\s*(.*?)(;?)$/) { # end of table definition
             $self->{options} = $1;
-            if (/^\)\s*ENGINE=([^\s;]+)\s+DEFAULT CHARSET=([^\s;]+)\s+COLLATE=([^\s;]+);/) {
+            if (/^\)\s*ENGINE=([^\s;]+).*\s+DEFAULT CHARSET=([^\s;]+)\s+COLLATE=([^\s;]+);/) {
               $self->{engine} = $1;
               $self->{charset} = $2;
               $self->{collate} = $3;
